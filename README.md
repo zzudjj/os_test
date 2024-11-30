@@ -1,2 +1,3 @@
 # os
-For learning only
+这个项目是基于rCore操作系统ch5分支代码的学习项目
+在这个项目中为ch5分支的rCore操作系统增加了线程管理，信号量，PV操作以及管程等功能。
