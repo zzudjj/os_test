@@ -16,25 +16,29 @@
 //! might not be what you expect.
 mod context;
 mod manager;
-mod pid;
+mod id;
 mod processor;
 mod switch;
+mod process;
 #[allow(clippy::module_inception)]
-mod task;
+mod thread;
 
 use crate::loader::get_app_data_by_name;
 use crate::sbi::shutdown;
 use alloc::sync::Arc;
 use lazy_static::*;
+use manager::{remove_from_pid2process, remove_task};
 pub use manager::{fetch_task, TaskManager};
+use process::ProcessControlBlock;
 use switch::__switch;
-use task::{TaskControlBlock, TaskStatus};
+pub use thread::{ThreadControlBlock, TaskStatus};
 
 pub use context::TaskContext;
-pub use manager::add_task;
-pub use pid::{pid_alloc, KernelStack, PidAllocator, PidHandle};
+pub use manager::{add_task, wakeup_task};
+pub use id::{pid_alloc, KernelStack, RecycleAllocator, PidHandle};
 pub use processor::{
     current_task, current_trap_cx, current_user_token, run_tasks, schedule, take_current_task,
+    current_user_process,
     Processor,
 };
 /// Suspend the current 'Running' task and run the next task in task list.
@@ -64,58 +68,79 @@ pub fn exit_current_and_run_next(exit_code: i32) {
     // take from Processor
     let task = take_current_task().unwrap();
 
-    let pid = task.getpid();
-    if pid == IDLE_PID {
-        println!(
-            "[kernel] Idle process exit with exit_code {} ...",
-            exit_code
-        );
-        if exit_code != 0 {
-            //crate::sbi::shutdown(255); //255 == -1 for err hint
-            shutdown(true)
-        } else {
-            //crate::sbi::shutdown(0); //0 for success hint
-            shutdown(false)
-        }
-    }
-
-    // **** access current TCB exclusively
-    let mut inner = task.inner_exclusive_access();
-    // Change status to Zombie
-    inner.task_status = TaskStatus::Zombie;
-    // Record exit code
-    inner.exit_code = exit_code;
-    // do not move to its parent but under initproc
-
-    // ++++++ access initproc TCB exclusively
-    {
-        let mut initproc_inner = INITPROC.inner_exclusive_access();
-        for child in inner.children.iter() {
-            child.inner_exclusive_access().parent = Some(Arc::downgrade(&INITPROC));
-            initproc_inner.children.push(child.clone());
-        }
-    }
-    // ++++++ release parent PCB
-
-    inner.children.clear();
-    // deallocate user space
-    inner.memory_set.recycle_data_pages();
-    drop(inner);
-    // **** release current PCB
-    // drop task manually to maintain rc correctly
+    let mut task_inner = task.inner_exclusive_access();
+    let tid = task_inner.res.as_ref().unwrap().tid;
+    let process = task.process.upgrade().unwrap();
+    task_inner.exit_code = Some(exit_code);
+    task_inner.res = None;
+    drop(task_inner);
     drop(task);
+
+    if tid == 0 {
+        let pid = process.getpid();
+        if pid == IDLE_PID {
+            println!(
+                "[kernel] Idle process exit with exit_code {} ...",
+                exit_code
+            );
+            if exit_code != 0 {
+                //crate::sbi::shutdown(255); //255 == -1 for err hint
+                shutdown(true);
+            } else {
+                //crate::sbi::shutdown(0); //0 for success hint
+                shutdown(false);
+            }
+        }
+        remove_from_pid2process(pid);
+        let mut process_inner = process.inner_exclusive_access();
+        process_inner.is_zombie = true;
+        process_inner.exit_code = exit_code;
+
+        {
+            let mut initproc_inner = INITPROC.inner_exclusive_access();
+            for child in process_inner.children.iter() {
+                child.inner_exclusive_access().parent = Some(Arc::downgrade(&INITPROC));
+                initproc_inner.children.push(child.clone());
+            }
+        }
+
+        for thread in process_inner.threads.iter().filter(|t| t.is_some()) {
+            let thread = thread.as_ref().unwrap();
+            remove_inactive_task(thread.clone());
+        }
+
+        process_inner.children.clear();
+        while process_inner.threads.len() > 1 {
+            process_inner.threads.pop();
+        }
+        process_inner.memory_set.recycle_data_pages();
+    }
+    drop(process);
     // we do not have to save task context
     let mut _unused = TaskContext::zero_init();
     schedule(&mut _unused as *mut _);
 }
 
+pub fn block_current_and_run_next() {
+    let thread = take_current_task().unwrap();
+    let mut thread_inner = thread.inner_exclusive_access();
+    let task_cx_ptr = &mut thread_inner.task_cx as *mut TaskContext;
+    thread_inner.task_status = TaskStatus::Blocked;
+    drop(thread_inner);
+    schedule(task_cx_ptr);
+}
+
 lazy_static! {
     ///Globle process that init user shell
-    pub static ref INITPROC: Arc<TaskControlBlock> = Arc::new(TaskControlBlock::new(
+    pub static ref INITPROC: Arc<ProcessControlBlock> =ProcessControlBlock::new(
         get_app_data_by_name("initproc").unwrap()
-    ));
+    );
 }
 ///Add init process to the manager
 pub fn add_initproc() {
-    add_task(INITPROC.clone());
+    let _initproc = INITPROC.clone();
+}
+
+pub fn remove_inactive_task(task: Arc<ThreadControlBlock>) {
+    remove_task(task.clone());
 }
