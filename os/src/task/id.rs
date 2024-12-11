@@ -181,7 +181,7 @@ impl TaskUserRes {
     pub fn trap_cx_ppn(&self) -> PhysPageNum {
         let process = self.process.upgrade().unwrap();
         let process_inner = process.inner_exclusive_access();
-        let trap_cx_user_va = trap_cx_bottom_from_tid(self.tid);
+        let trap_cx_user_va: VirtAddr = trap_cx_bottom_from_tid(self.tid).into();
         process_inner
             .memory_set
             .translate(trap_cx_user_va.into())

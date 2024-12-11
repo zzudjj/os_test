@@ -7,12 +7,12 @@ use crate::trap::{trap_handler, TrapContext};
 
 pub fn sys_thread_create(entry: usize, arg:usize) -> isize{
     let process = current_user_process();
-    let mut process_inner = process.inner_exclusive_access();
     let ustack_base = current_task().unwrap().inner_exclusive_access().res.as_ref().unwrap().ustack_base();
     let new_thread = Arc::new(ThreadControlBlock::new(process.clone(), ustack_base, true));
     let new_thread_inner = new_thread.inner_exclusive_access();
     let new_thread_res = new_thread_inner.res.as_ref().unwrap();
     let new_thread_id = new_thread_res.tid;
+    let mut process_inner = process.inner_exclusive_access();
     let threads = &mut process_inner.threads;
     while threads.len() < new_thread_id + 1 {
        threads.push(None);

@@ -88,7 +88,7 @@ pub fn current_trap_cx() -> &'static mut TrapContext {
         .inner_exclusive_access()
         .get_trap_cx()
 }
-#[allow(unused)]
+
 pub fn current_trap_cx_va() -> usize {
     current_task()
     .unwrap()

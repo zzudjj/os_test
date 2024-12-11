@@ -63,7 +63,6 @@ impl ProcessControlBlock {
         let (memory_set, ustack_base, entry_point) = MemorySet::from_elf(elf_data);
         // alloc a pid and a kernel stack in kernel space
         let pid_handle = pid_alloc();
-        let thread_res_allocator = RecycleAllocator::new();
         // push a task context which goes to trap_return to the top of kernel stack
         let process = Arc::new(Self {
             pid: pid_handle,
@@ -75,7 +74,7 @@ impl ProcessControlBlock {
                     children: Vec::new(),
                     exit_code: 0,
                     threads: Vec::new(),
-                    thread_res_allocator: thread_res_allocator
+                    thread_res_allocator: RecycleAllocator::new(),
                 })
             },
         });
@@ -131,7 +130,7 @@ impl ProcessControlBlock {
     pub fn fork(self: &Arc<Self>) -> Arc<Self> {
         // ---- access parent PCB exclusively
         let mut parent_inner = self.inner_exclusive_access();
-        assert_eq!(self.inner_exclusive_access().thread_count(), 1);
+        assert_eq!(parent_inner.thread_count(), 1);
         // copy user space(include trap context)
         let memory_set = MemorySet::from_existed_user(&parent_inner.memory_set);
         // alloc a pid and a kernel stack in kernel space

@@ -38,7 +38,7 @@ pub use manager::{add_task, wakeup_task};
 pub use id::{pid_alloc, KernelStack, RecycleAllocator, PidHandle};
 pub use processor::{
     current_task, current_trap_cx, current_user_token, run_tasks, schedule, take_current_task,
-    current_user_process,
+    current_user_process, current_trap_cx_va,
     Processor,
 };
 /// Suspend the current 'Running' task and run the next task in task list.
