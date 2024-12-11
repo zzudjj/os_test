@@ -20,7 +20,6 @@ mod id;
 mod processor;
 mod switch;
 mod process;
-#[allow(clippy::module_inception)]
 mod thread;
 
 use crate::loader::get_app_data_by_name;

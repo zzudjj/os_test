@@ -109,3 +109,15 @@ pub fn waittid(tid: usize) -> isize {
         }
     }
 }
+
+pub fn mutex_create() -> usize {
+    sys_mutex_create()
+}
+
+pub fn lock(mutex_id: usize) -> isize {
+    sys_lock(mutex_id)
+}
+
+pub fn unlock(mutex_id: usize) -> isize {
+    sys_unlock(mutex_id)
+}

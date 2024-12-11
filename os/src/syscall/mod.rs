@@ -22,6 +22,9 @@ const SYSCALL_THREAD_CREATE: usize = 1000;
 const SYSCALL_GETTID: usize = 1001;
 const SYSCALL_WAITTID: usize = 1002;
 const SYSCALL_SLEEP: usize = 101;
+const SYSCALL_MUTEX_CREATE: usize = 501;
+const SYSCALL_LOCK: usize = 502;
+const SYSCALL_UNLOCK: usize = 503;
 
 mod fs;
 mod process;
@@ -48,6 +51,9 @@ pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
         SYSCALL_GETTID => sys_gettid(),
         SYSCALL_WAITTID => sys_waittid(args[0]) as isize,
         SYSCALL_SLEEP => sys_sleep(args[0]),
+        SYSCALL_MUTEX_CREATE => sys_mutex_create() as isize,
+        SYSCALL_LOCK => sys_lock(args[0]),
+        SYSCALL_UNLOCK => sys_unlock(args[0]),
         _ => panic!("Unsupported syscall_id: {}", syscall_id),
     }
 }

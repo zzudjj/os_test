@@ -13,6 +13,9 @@ const SYSCALL_THREAD_CREATE: usize = 1000;
 const SYSCALL_GETTID: usize = 1001;
 const SYSCALL_WAITTID: usize = 1002;
 const SYSCALL_SLEEP: usize = 101;
+const SYSCALL_MUTEX_CREATE: usize = 501;
+const SYSCALL_LOCK: usize = 502;
+const SYSCALL_UNLOCK: usize = 503;
 
 fn syscall(id: usize, args: [usize; 3]) -> isize {
     let mut ret: isize;
@@ -82,4 +85,16 @@ pub fn sys_waittid(tid: usize) -> isize {
 
 pub fn sys_sleep(ms: usize) -> isize {
     syscall(SYSCALL_SLEEP, [ms, 0, 0])
+}
+
+pub fn sys_mutex_create() -> usize {
+    syscall(SYSCALL_MUTEX_CREATE, [0, 0, 0]) as usize
+}
+
+pub fn sys_lock(mutex_id: usize) -> isize {
+    syscall(SYSCALL_LOCK, [mutex_id, 0, 0])
+}
+
+pub fn sys_unlock(mutex_id: usize) -> isize {
+    syscall(SYSCALL_UNLOCK, [mutex_id, 0, 0])
 }
