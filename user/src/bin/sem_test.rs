@@ -37,6 +37,7 @@ pub fn read_i32() -> i32 {
     unsafe {
         value = CYC_BUF.buf[CYC_BUF.read];
         sleep(5);
+        CYC_BUF.buf[CYC_BUF.read] = 0;
         CYC_BUF.read = (CYC_BUF.read + 1) % 6;
     }
     value
@@ -46,11 +47,11 @@ pub fn processor(v: *const i32) {
     unsafe {
         for _ in 0..5 {
             let value = &*v;
-            sem_wait(MUTEX);
             sem_wait(EMPTY);
+            sem_wait(MUTEX);
             write_i32(*value);
             let last_write_ptr = (CYC_BUF.write + 6 - 1) % 6;
-            let history= format!("thread{} writed the value {} in buf{}", gettid(), value, last_write_ptr);
+            let history= format!("processor{} wrote the value {} in buf{}", gettid(), *value, last_write_ptr);
             HISTORY.push(history);
             sem_post(MUTEX);
             sem_post(FULL);
@@ -62,11 +63,11 @@ pub fn processor(v: *const i32) {
 pub fn consumer() {
     unsafe {
         for _ in 0..10 {
-            sem_wait(MUTEX);
             sem_wait(FULL);
+            sem_wait(MUTEX);
             let value = read_i32();
             let last_read_ptr = (CYC_BUF.read + 6 - 1) % 6;
-            let history= format!("thread{} writed the value {} in buf{}", gettid(), value, last_read_ptr);
+            let history= format!("consumer{} read the value {} from buf{}", gettid(), value, last_read_ptr);
             HISTORY.push(history);
             sem_post(MUTEX);
             sem_post(EMPTY);
@@ -88,16 +89,15 @@ pub fn main() -> isize {
     }
     let mut consumers = Vec::new();
     let mut processors = Vec::new();
+    let values = [1,2,3,4];
     for i in 0..4 {
-        let j = i + 1;
         processors.push(
-            thread_create(processor as usize, &j as *const _ as usize)
+            thread_create(processor as usize, &values[i] as *const _ as usize)
         );
     }
-    for i in 0..2 {
-        let j =  i + 1;
+    for _ in 0..2 {
         consumers.push(
-            thread_create(consumer as usize, &j as *const _ as usize)
+            thread_create(consumer as usize, 0)
         )
     }
     for tid in processors.iter() {
@@ -115,8 +115,12 @@ pub fn main() -> isize {
     }
     unsafe {
         for history in HISTORY.iter() {
-            println!("{}",history);
+            println!("{}",history.as_str());
         }
+        for value in CYC_BUF.buf.iter() {
+            print!("{} ",value);
+        }
+        println!("");
     }
     0
 }
