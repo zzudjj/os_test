@@ -1,6 +1,6 @@
 use alloc::{collections::vec_deque::VecDeque, sync::Arc};
 
-use crate::task::{block_current_and_run_next, take_current_task, wakeup_task, ThreadControlBlock};
+use crate::task::{block_current_and_run_next, current_task, wakeup_task, ThreadControlBlock};
 
 use super::UPSafeCell;
 use core::cell::RefMut;
@@ -33,12 +33,16 @@ impl Mutex {
     }
 
     pub fn lock(&self) {
-        let mut inner = self.inner_exclusive_access();
-        if inner.is_locked {
-            let thread = take_current_task().unwrap();
-            inner.waited_queue.push_back(thread);
+        let mut is_locked = self.is_locked();
+        while is_locked {
+            let thread = current_task().unwrap();
+            let mut inner = self.inner_exclusive_access();
+            inner.waited_queue.push_back(thread.clone()); 
+            drop(inner);
             block_current_and_run_next();
+            is_locked = self.is_locked();
         }
+        let mut inner = self.inner_exclusive_access();
         inner.is_locked = true;
     }
 
@@ -48,5 +52,9 @@ impl Mutex {
         if let Some(waited_thread) = inner.waited_queue.pop_front() {
             wakeup_task(waited_thread);
         }
+    }
+
+    pub fn is_locked(&self) -> bool {
+        self.inner_exclusive_access().is_locked
     }
 }

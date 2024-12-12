@@ -24,7 +24,7 @@ pub struct ProcessControlBlockInner {
     pub children: Vec<Arc<ProcessControlBlock>>,
     pub exit_code: i32,
     pub threads: Vec<Option<Arc<ThreadControlBlock>>>,
-    pub mutex_list: Vec<Option<Mutex>>,
+    pub mutex_list: Vec<Option<Arc<Mutex>>>,
     pub thread_res_allocator: RecycleAllocator,
 }
 

@@ -8,21 +8,21 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-use user_lib::{thread_create, waittid, mutex_create, lock, unlock};
+use user_lib::{exit, lock, mutex_create, thread_create, unlock, waittid, sleep};
 
 
 static mut NUM: i32 = 30;
 static mut MUTEX: usize = 0;
 
-pub fn thread() {
+pub fn thread() -> ! {
     for _ in 0..10 {
-        
-        unsafe {
-            lock(MUTEX);
-            NUM =  NUM  - 1;
-            unlock(MUTEX);
-        }
+        lock(unsafe { MUTEX });
+        let n =  unsafe { NUM }  - 1;
+        sleep(5);
+        unsafe { NUM = n };
+        unlock(unsafe { MUTEX });
     }
+    exit(0);
 }
 
 #[no_mangle]
@@ -38,5 +38,6 @@ pub fn main() -> i32 {
         let exit_code = waittid(*t as usize);
         println!("thread#{} exited with code {}", t, exit_code);
     }
+    println!("NUM:{}",unsafe{NUM});
     0
 }
