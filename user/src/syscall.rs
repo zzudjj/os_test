@@ -16,6 +16,12 @@ const SYSCALL_SLEEP: usize = 101;
 const SYSCALL_MUTEX_CREATE: usize = 501;
 const SYSCALL_LOCK: usize = 502;
 const SYSCALL_UNLOCK: usize = 503;
+const SYSCALL_SEM_CREATE: usize = 504;
+const SYSCALL_SEM_INIT: usize = 505;
+const SYSCALL_SEM_WAIT: usize = 506;
+const SYSCALL_SEM_POST: usize = 507;
+const SYSCALL_SEM_DESTROY: usize = 508;
+const SYSCALL_MUTEX_DESTROY: usize = 509;
 
 fn syscall(id: usize, args: [usize; 3]) -> isize {
     let mut ret: isize;
@@ -97,4 +103,29 @@ pub fn sys_lock(mutex_id: usize) -> isize {
 
 pub fn sys_unlock(mutex_id: usize) -> isize {
     syscall(SYSCALL_UNLOCK, [mutex_id, 0, 0])
+}
+
+
+pub fn sys_mutex_destroy(mutex_id: usize) -> isize {
+    syscall(SYSCALL_MUTEX_DESTROY, [mutex_id, 0, 0])
+}
+
+pub fn sys_sem_create() -> usize {
+    syscall(SYSCALL_SEM_CREATE, [0, 0, 0]) as usize
+}
+
+pub fn sys_sem_init(sem_id:usize, value: isize) -> isize {
+    syscall(SYSCALL_SEM_INIT, [sem_id, value as usize, 0])
+}
+
+pub fn sys_sem_wait(sem_id: usize) -> isize {
+    syscall(SYSCALL_SEM_WAIT, [sem_id, 0, 0])
+}
+
+pub fn sys_sem_post(sem_id: usize) -> isize {
+    syscall(SYSCALL_SEM_POST, [sem_id, 0, 0])
+}
+
+pub fn sys_sem_destroy(sem_id: usize) -> isize {
+    syscall(SYSCALL_SEM_DESTROY, [sem_id, 0, 0])
 }

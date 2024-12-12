@@ -25,6 +25,12 @@ const SYSCALL_SLEEP: usize = 101;
 const SYSCALL_MUTEX_CREATE: usize = 501;
 const SYSCALL_LOCK: usize = 502;
 const SYSCALL_UNLOCK: usize = 503;
+const SYSCALL_SEM_CREATE: usize = 504;
+const SYSCALL_SEM_INIT: usize = 505;
+const SYSCALL_SEM_WAIT: usize = 506;
+const SYSCALL_SEM_POST: usize = 507;
+const SYSCALL_SEM_DESTROY: usize = 508;
+const SYSCALL_MUTEX_DESTROY: usize = 509;
 
 mod fs;
 mod process;
@@ -54,6 +60,12 @@ pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
         SYSCALL_MUTEX_CREATE => sys_mutex_create() as isize,
         SYSCALL_LOCK => sys_lock(args[0]),
         SYSCALL_UNLOCK => sys_unlock(args[0]),
+        SYSCALL_SEM_CREATE => sys_sem_create() as isize,
+        SYSCALL_SEM_INIT => sys_sem_init(args[0], args[1] as isize),
+        SYSCALL_SEM_WAIT => sys_sem_wait(args[0]),
+        SYSCALL_SEM_POST => sys_sem_post(args[0]),
+        SYSCALL_MUTEX_DESTROY => sys_mutex_destroy(args[0]),
+        SYSCALL_SEM_DESTROY => sys_sem_destroy(args[0]),
         _ => panic!("Unsupported syscall_id: {}", syscall_id),
     }
 }

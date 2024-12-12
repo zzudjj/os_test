@@ -121,3 +121,27 @@ pub fn lock(mutex_id: usize) -> isize {
 pub fn unlock(mutex_id: usize) -> isize {
     sys_unlock(mutex_id)
 }
+
+pub fn mutex_destroy(mutex_id: usize) -> isize {
+    sys_mutex_destroy(mutex_id)
+}
+
+pub fn sem_create() -> usize {
+    sys_sem_create()
+}
+
+pub fn sem_init(sem_id: usize, value: isize) -> isize {
+    sys_sem_init(sem_id, value)
+}
+
+pub fn sem_wait(sem_id: usize) -> isize {
+    sys_sem_wait(sem_id)
+}
+
+pub fn sem_post(sem_id: usize) -> isize {
+    sys_sem_post(sem_id)
+}
+
+pub fn sem_destroy(sem_id: usize) -> isize {
+    sys_sem_destroy(sem_id)
+}
