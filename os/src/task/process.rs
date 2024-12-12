@@ -3,7 +3,7 @@ use super::manager::insert_into_pid2process;
 use super::{add_task, RecycleAllocator};
 use super::{pid_alloc, PidHandle};
 use crate::mm::{MemorySet, KERNEL_SPACE};
-use crate::sync::{Mutex, Semaphore, UPSafeCell};
+use crate::sync::{HoareMonitor, Mutex, Semaphore, UPSafeCell};
 use crate::trap::{trap_handler, TrapContext};
 use crate::task::ThreadControlBlock;
 use alloc::sync::{Arc, Weak};
@@ -26,6 +26,7 @@ pub struct ProcessControlBlockInner {
     pub threads: Vec<Option<Arc<ThreadControlBlock>>>,
     pub mutex_list: Vec<Option<Arc<Mutex>>>,
     pub sem_list: Vec<Option<Arc<Semaphore>>>,
+    pub monitor_list: Vec<Option<Arc<HoareMonitor>>>,
     pub thread_res_allocator: RecycleAllocator,
 }
 
@@ -78,6 +79,7 @@ impl ProcessControlBlock {
                     threads: Vec::new(),
                     mutex_list: Vec::new(),
                     sem_list: Vec::new(),
+                    monitor_list: Vec::new(),
                     thread_res_allocator: RecycleAllocator::new(),
                 })
             },
@@ -150,6 +152,7 @@ impl ProcessControlBlock {
                     threads: Vec::new(),
                     mutex_list: Vec::new(),
                     sem_list: Vec::new(),
+                    monitor_list: Vec::new(),
                     thread_res_allocator: RecycleAllocator::new(),
                     exit_code: 0,
                 })

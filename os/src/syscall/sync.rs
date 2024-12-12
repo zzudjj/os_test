@@ -1,5 +1,5 @@
 use alloc::sync::Arc;
-use crate::sync::{Mutex, Semaphore};
+use crate::sync::{HoareMonitor, Mutex, Semaphore};
 use crate::task::{block_current_and_run_next, current_task, current_user_process};
 use crate::timer::{add_timer, get_time_ms};
 
@@ -99,6 +99,76 @@ pub fn sys_sem_destroy(sem_id: usize) -> isize {
     let process = current_user_process();
     let mut process_inner = process.inner_exclusive_access();
     process_inner.sem_list[sem_id] = None;
+    drop(process_inner);
+    drop(process);
+    0
+}
+
+pub fn sys_monitor_create() -> usize {
+    let process = current_user_process();
+    let mut process_inner = process.inner_exclusive_access();
+    let monitor_list = &mut process_inner.monitor_list;
+    let new_monitor = Arc::new(HoareMonitor::new());
+    monitor_list.push(Some(new_monitor));
+    let monitor_id = monitor_list.len() - 1;
+    drop(process_inner);
+    drop(process);
+    monitor_id
+}
+
+pub fn sys_enter(monitor_id: usize) -> isize {
+    let process = current_user_process();
+    let process_inner = process.inner_exclusive_access();
+    let monitor = process_inner.monitor_list[monitor_id].as_ref().unwrap().clone();
+    drop(process_inner);
+    drop(process);
+    monitor.enter();
+    0
+}
+
+pub fn sys_leave(monitor_id: usize) -> isize {
+    let process = current_user_process();
+    let process_inner = process.inner_exclusive_access();
+    let monitor = process_inner.monitor_list[monitor_id].as_ref().unwrap().clone();
+    drop(process_inner);
+    drop(process);
+    monitor.leave();
+    0
+}
+
+pub fn sys_create_res_sem(monitor_id: usize) -> usize {
+    let process = current_user_process();
+    let process_inner = process.inner_exclusive_access();
+    let monitor = process_inner.monitor_list[monitor_id].as_ref().unwrap().clone();
+    drop(process_inner);
+    drop(process);
+    monitor.create_res_sem()
+}
+
+pub fn sys_wait(monitor_id: usize, res_id: usize) -> isize {
+    let process = current_user_process();
+    let process_inner = process.inner_exclusive_access();
+    let monitor = process_inner.monitor_list[monitor_id].as_ref().unwrap().clone();
+    drop(process_inner);
+    drop(process);
+    monitor.wait(res_id);
+    0
+}
+
+pub fn sys_signal(monitor_id: usize, res_id: usize) -> isize {
+    let process = current_user_process();
+    let process_inner = process.inner_exclusive_access();
+    let monitor = process_inner.monitor_list[monitor_id].as_ref().unwrap().clone();
+    drop(process_inner);
+    drop(process);
+    monitor.signal(res_id);
+    0
+}
+
+pub fn sys_monitor_destroy(monitor_id: usize) -> isize {
+    let process = current_user_process();
+    let mut process_inner = process.inner_exclusive_access();
+    process_inner.monitor_list[monitor_id] = None;
     drop(process_inner);
     drop(process);
     0

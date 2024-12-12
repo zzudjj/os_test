@@ -145,3 +145,32 @@ pub fn sem_post(sem_id: usize) -> isize {
 pub fn sem_destroy(sem_id: usize) -> isize {
     sys_sem_destroy(sem_id)
 }
+
+pub fn monitor_create() -> usize {
+    sys_monitor_create()
+}
+
+pub fn enter(monitor_id: usize) -> isize {
+    sys_enter(monitor_id)
+}
+
+pub fn leave(monitor_id: usize) -> isize {
+    sys_leave(monitor_id)
+}
+
+pub fn create_res_sem(monitor_id: usize) -> usize {
+    sys_create_res_sem(monitor_id)
+}
+
+pub fn monitor_wait(monitor_id: usize, res_id: usize) -> isize {
+    sys_wait(monitor_id, res_id)
+}
+
+pub fn monitor_signal(monitor_id: usize, res_id: usize) -> isize {
+    sys_signal(monitor_id, res_id)
+}
+
+pub fn monitor_destroy(monitor_id: usize) -> isize {
+    sys_monitor_destroy(monitor_id)
+}
+
