@@ -7,28 +7,28 @@ use alloc::collections::btree_map::BTreeMap;
 use alloc::collections::VecDeque;
 use alloc::sync::Arc;
 use lazy_static::*;
-///A array of `TaskControlBlock` that is thread-safe
+///任务管理器结构
 pub struct TaskManager {
     ready_queue: VecDeque<Arc<ThreadControlBlock>>,
 }
 
 /// A simple FIFO scheduler.
 impl TaskManager {
-    ///Creat an empty TaskManager
+    ///创建一个任务管理器
     pub fn new() -> Self {
         Self {
             ready_queue: VecDeque::new(),
         }
     }
-    ///Add a task to `TaskManager`
+    ///想就绪队列中添加线程
     pub fn add(&mut self, task: Arc<ThreadControlBlock>) {
         self.ready_queue.push_back(task);
     }
-    ///Remove the first task and return it,or `None` if `TaskManager` is empty
+    ///弹出就绪队列中的第一个线程
     pub fn fetch(&mut self) -> Option<Arc<ThreadControlBlock>> {
         self.ready_queue.pop_front()
     }
-
+    ///删除就绪队列中的指定线程
     pub fn remove(&mut self, task: Arc<ThreadControlBlock>) {
         if let Some((id, _)) = self
             .ready_queue
@@ -47,15 +47,15 @@ lazy_static! {
     pub static ref PID2PCB: UPSafeCell<BTreeMap<usize, Arc<ProcessControlBlock>>> = 
         unsafe { UPSafeCell::new(BTreeMap::new()) };
 }
-///Interface offered to add task
+///在就绪队列中添加线程
 pub fn add_task(task: Arc<ThreadControlBlock>) {
     TASK_MANAGER.exclusive_access().add(task);
 }
-///Interface offered to pop the first task
+///弹出就绪队列的第一个线程
 pub fn fetch_task() -> Option<Arc<ThreadControlBlock>> {
     TASK_MANAGER.exclusive_access().fetch()
 }
-
+///去除就绪队列和睡眠等待队列中的指定线程
 pub fn remove_task(task: Arc<ThreadControlBlock>) {
     TASK_MANAGER.exclusive_access().remove(task.clone());
     remove_timer(task.clone());
@@ -84,6 +84,7 @@ pub fn remove_from_pid2process(pid: usize) {
     }
 }
 
+///唤醒阻塞线程并加入就绪队列
 pub fn wakeup_task(task: Arc<ThreadControlBlock>) {
     let mut task_inner = task.inner_exclusive_access();
     task_inner.task_status = TaskStatus::Ready;

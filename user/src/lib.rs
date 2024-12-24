@@ -39,6 +39,81 @@ fn main() -> i32 {
     panic!("Cannot find main!");
 }
 
+pub struct Mutex(usize);
+
+impl Mutex {
+
+    pub fn new() -> Self {
+        Self(sys_mutex_create())
+    }
+
+    pub fn lock(&self) -> isize {
+        sys_mutex_lock(self.0)
+    }
+
+    pub fn unlock(&self) -> isize {
+        sys_mutex_unlock(self.0)
+    }
+
+    pub fn destroy(&self) -> isize {
+        sys_mutex_destroy(self.0)
+    }
+}
+
+pub struct Semaphore(usize);
+
+impl Semaphore {
+    
+    pub fn new(value: isize) -> Self {
+        Self(sys_sem_create(value))
+    }
+
+    pub fn wait(&self) -> isize {
+        sys_sem_wait(self.0)
+    }
+
+    pub fn post(&self) -> isize {
+        sys_sem_post(self.0)
+    }
+
+    pub fn destroy(&self) -> isize {
+        sys_sem_destroy(self.0)
+    }
+}
+
+pub struct HoareMonitor(usize);
+
+impl HoareMonitor {
+
+    pub fn new() -> Self {
+        Self(sys_monitor_create())
+    }
+
+    pub fn create_res_sem(&self) -> usize {
+        sys_monitor_create_res_sem(self.0)
+    } 
+
+    pub fn enter(&self) -> isize {
+        sys_monitor_enter(self.0)
+    }
+
+    pub fn leave(&self) -> isize {
+        sys_monitor_leave(self.0)
+    }
+ 
+    pub fn wait(&self, res_id: usize) -> isize {
+        sys_monitor_wait(self.0, res_id)
+    }
+
+    pub fn signal(&self, res_id: usize) -> isize {
+        sys_monitor_signal(self.0, res_id)
+    }
+
+    pub fn destroy(&self) -> isize {
+        sys_monitor_destroy(self.0)
+    }
+}
+
 pub fn read(fd: usize, buf: &mut [u8]) -> isize {
     sys_read(fd, buf)
 }
@@ -110,67 +185,67 @@ pub fn waittid(tid: usize) -> isize {
     }
 }
 
-pub fn mutex_create() -> usize {
-    sys_mutex_create()
-}
+// pub fn mutex_create() -> usize {
+//     sys_mutex_create()
+// }
 
-pub fn lock(mutex_id: usize) -> isize {
-    sys_lock(mutex_id)
-}
+// pub fn mutex_lock(mutex_id: usize) -> isize {
+//     sys_mutex_lock(mutex_id)
+// }
 
-pub fn unlock(mutex_id: usize) -> isize {
-    sys_unlock(mutex_id)
-}
+// pub fn mutex_unlock(mutex_id: usize) -> isize {
+//     sys_mutex_unlock(mutex_id)
+// }
 
-pub fn mutex_destroy(mutex_id: usize) -> isize {
-    sys_mutex_destroy(mutex_id)
-}
+// pub fn mutex_destroy(mutex_id: usize) -> isize {
+//     sys_mutex_destroy(mutex_id)
+// }
 
-pub fn sem_create() -> usize {
-    sys_sem_create()
-}
+// pub fn sem_create() -> usize {
+//     sys_sem_create()
+// }
 
-pub fn sem_init(sem_id: usize, value: isize) -> isize {
-    sys_sem_init(sem_id, value)
-}
+// pub fn sem_init(sem_id: usize, value: isize) -> isize {
+//     sys_sem_init(sem_id, value)
+// }
 
-pub fn sem_wait(sem_id: usize) -> isize {
-    sys_sem_wait(sem_id)
-}
+// pub fn sem_wait(sem_id: usize) -> isize {
+//     sys_sem_wait(sem_id)
+// }
 
-pub fn sem_post(sem_id: usize) -> isize {
-    sys_sem_post(sem_id)
-}
+// pub fn sem_post(sem_id: usize) -> isize {
+//     sys_sem_post(sem_id)
+// }
 
-pub fn sem_destroy(sem_id: usize) -> isize {
-    sys_sem_destroy(sem_id)
-}
+// pub fn sem_destroy(sem_id: usize) -> isize {
+//     sys_sem_destroy(sem_id)
+// }
 
-pub fn monitor_create() -> usize {
-    sys_monitor_create()
-}
+// pub fn monitor_create() -> usize {
+//     sys_monitor_create()
+// }
 
-pub fn enter(monitor_id: usize) -> isize {
-    sys_enter(monitor_id)
-}
+// pub fn monitor_enter(monitor_id: usize) -> isize {
+//     sys_monitor_enter(monitor_id)
+// }
 
-pub fn leave(monitor_id: usize) -> isize {
-    sys_leave(monitor_id)
-}
+// pub fn monitor_leave(monitor_id: usize) -> isize {
+//     sys_monitor_leave(monitor_id)
+// }
 
-pub fn create_res_sem(monitor_id: usize) -> usize {
-    sys_create_res_sem(monitor_id)
-}
+// pub fn monitor_create_res_sem(monitor_id: usize) -> usize {
+//     sys_monitor_create_res_sem(monitor_id)
+// }
 
-pub fn monitor_wait(monitor_id: usize, res_id: usize) -> isize {
-    sys_wait(monitor_id, res_id)
-}
+// pub fn monitor_wait(monitor_id: usize, res_id: usize) -> isize {
+//     sys_monitor_wait(monitor_id, res_id)
+// }
 
-pub fn monitor_signal(monitor_id: usize, res_id: usize) -> isize {
-    sys_signal(monitor_id, res_id)
-}
+// pub fn monitor_signal(monitor_id: usize, res_id: usize) -> isize {
+//     sys_monitor_signal(monitor_id, res_id)
+// }
 
-pub fn monitor_destroy(monitor_id: usize) -> isize {
-    sys_monitor_destroy(monitor_id)
-}
+// pub fn monitor_destroy(monitor_id: usize) -> isize {
+//     sys_monitor_destroy(monitor_id)
+// }
 

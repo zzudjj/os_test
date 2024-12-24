@@ -16,12 +16,12 @@ pub struct SemaphoreInner {
 } 
 
 impl Semaphore {
-    pub fn new() -> Self {
+    pub fn new(value: isize) -> Self {
         Self {
             inner : unsafe {
                 UPSafeCell::new(
                     SemaphoreInner {
-                        value: 0,
+                        value: value,
                         waited_queue: VecDeque::new(),
                     }
                 )
@@ -31,11 +31,6 @@ impl Semaphore {
 
     pub fn inner_exclusive_access(&self) -> RefMut<'_, SemaphoreInner> {
         self.inner.exclusive_access()
-    }
-
-    pub fn sem_init(&self, value: isize) {
-        let mut inner = self.inner_exclusive_access();
-        inner.value = value;
     }
 
     pub fn sem_wait(&self) {

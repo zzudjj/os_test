@@ -9,23 +9,26 @@ use crate::trap::TrapContext;
 use alloc::sync::{Arc, Weak};
 use core::cell::RefMut;
 
+///线程控制块
 pub struct ThreadControlBlock {
-    // immutable
-    pub process: Weak<ProcessControlBlock>,
-    pub kernel_stack: KernelStack,
-    // mutable
-    inner: UPSafeCell<ThreadControlBlockInner>,
+    // 不变量
+    pub process: Weak<ProcessControlBlock>, //所属进程的弱引用
+    pub kernel_stack: KernelStack, //线程的内核栈
+    // 可变量
+    inner: UPSafeCell<ThreadControlBlockInner>, 
 }
 
+///线程控制块中的可变量集合
 pub struct ThreadControlBlockInner {
-    pub res: Option<TaskUserRes>,
-    pub trap_cx_ppn: PhysPageNum,
-    pub task_cx: TaskContext,
-    pub task_status: TaskStatus,
-    pub exit_code: Option<i32>,
+    pub res: Option<TaskUserRes>, //线程资源集合
+    pub trap_cx_ppn: PhysPageNum, //Trap上下文
+    pub task_cx: TaskContext, //任务上下文
+    pub task_status: TaskStatus, //线程状态
+    pub exit_code: Option<i32>, //退出码
 }
 
 impl ThreadControlBlock {
+    ///创建一个线程控制块
     pub fn new(
         process: Arc<ProcessControlBlock>,
         ustack_base: usize,
@@ -49,11 +52,11 @@ impl ThreadControlBlock {
             };
             thread
         }
-
+    ///获取线程控制块inner成员变量的可变引用
     pub fn inner_exclusive_access(&self) -> RefMut<'_, ThreadControlBlockInner> {
         self.inner.exclusive_access()
     }
-    
+    ///获取父进程地址空间的token
     pub fn get_user_token(&self) -> usize {
         let process = self.process.upgrade().unwrap();
         let process_innner = process.inner_exclusive_access();
@@ -62,14 +65,16 @@ impl ThreadControlBlock {
 }
 
 impl ThreadControlBlockInner {
+    ///获取线程的Trap上下文
     pub fn get_trap_cx(&self) -> &'static mut TrapContext {
         self.trap_cx_ppn.get_mut()
     }
 }
 
+///线程状态
 #[derive(Copy, Clone, PartialEq)]
 pub enum TaskStatus {
-    Ready,
-    Running,
-    Blocked,
+    Ready, //就绪态
+    Running, //运行态
+    Blocked, //阻塞态
 }

@@ -3,24 +3,26 @@
 
 #[macro_use]
 extern crate user_lib;
-
 extern crate alloc;
 
 use alloc::vec::Vec;
-
-use user_lib::{exit, lock, mutex_create, thread_create, unlock, waittid, sleep};
+use lazy_static::*;
+use user_lib::{exit, Mutex, thread_create, waittid, sleep};
 
 
 static mut NUM: i32 = 30;
-static mut MUTEX: usize = 0;
+lazy_static! {
+    static ref MUTEX: Mutex = Mutex::new();
+}
+
 
 pub fn thread() -> ! {
     for _ in 0..10 {
-        lock(unsafe { MUTEX });
+        MUTEX.lock();
         let n =  unsafe { NUM }  - 1;
         sleep(5);
         unsafe { NUM = n };
-        unlock(unsafe { MUTEX });
+        MUTEX.unlock();
     }
     exit(0);
 }
@@ -28,7 +30,6 @@ pub fn thread() -> ! {
 #[no_mangle]
 pub fn main() -> i32 {
     let mut threads: Vec<isize> = Vec::new();
-    unsafe { MUTEX = mutex_create() };
     for _ in 0..3 {
         threads.push(
             thread_create(thread as usize, 0 as usize)

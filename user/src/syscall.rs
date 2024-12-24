@@ -14,20 +14,19 @@ const SYSCALL_GETTID: usize = 1001;
 const SYSCALL_WAITTID: usize = 1002;
 const SYSCALL_SLEEP: usize = 101;
 const SYSCALL_MUTEX_CREATE: usize = 501;
-const SYSCALL_LOCK: usize = 502;
-const SYSCALL_UNLOCK: usize = 503;
+const SYSCALL_MUTEX_LOCK: usize = 502;
+const SYSCALL_MUTEX_UNLOCK: usize = 503;
 const SYSCALL_SEM_CREATE: usize = 504;
-const SYSCALL_SEM_INIT: usize = 505;
 const SYSCALL_SEM_WAIT: usize = 506;
 const SYSCALL_SEM_POST: usize = 507;
 const SYSCALL_SEM_DESTROY: usize = 508;
 const SYSCALL_MUTEX_DESTROY: usize = 509;
 const SYSCALL_MONITOR_CREATE: usize = 510;
-const SYSCALL_ENTER: usize = 511;
-const SYSCALL_LEAVE: usize = 512;
-const SYSCALL_CREATE_RES_SEM: usize = 513;
-const SYSCALL_WAIT: usize = 514;
-const SYSCALL_SIGNAL: usize = 515;
+const SYSCALL_MONITOR_ENTER: usize = 511;
+const SYSCALL_MONITOR_LEAVE: usize = 512;
+const SYSCALL_MONITOR_CREATE_RES_SEM: usize = 513;
+const SYSCALL_MONITOR_WAIT: usize = 514;
+const SYSCALL_MONITOR_SIGNAL: usize = 515;
 const SYSCALL_MONITOR_DESTROY: usize = 516;
 
 fn syscall(id: usize, args: [usize; 3]) -> isize {
@@ -104,12 +103,12 @@ pub fn sys_mutex_create() -> usize {
     syscall(SYSCALL_MUTEX_CREATE, [0, 0, 0]) as usize
 }
 
-pub fn sys_lock(mutex_id: usize) -> isize {
-    syscall(SYSCALL_LOCK, [mutex_id, 0, 0])
+pub fn sys_mutex_lock(mutex_id: usize) -> isize {
+    syscall(SYSCALL_MUTEX_LOCK, [mutex_id, 0, 0])
 }
 
-pub fn sys_unlock(mutex_id: usize) -> isize {
-    syscall(SYSCALL_UNLOCK, [mutex_id, 0, 0])
+pub fn sys_mutex_unlock(mutex_id: usize) -> isize {
+    syscall(SYSCALL_MUTEX_UNLOCK, [mutex_id, 0, 0])
 }
 
 
@@ -117,12 +116,8 @@ pub fn sys_mutex_destroy(mutex_id: usize) -> isize {
     syscall(SYSCALL_MUTEX_DESTROY, [mutex_id, 0, 0])
 }
 
-pub fn sys_sem_create() -> usize {
-    syscall(SYSCALL_SEM_CREATE, [0, 0, 0]) as usize
-}
-
-pub fn sys_sem_init(sem_id:usize, value: isize) -> isize {
-    syscall(SYSCALL_SEM_INIT, [sem_id, value as usize, 0])
+pub fn sys_sem_create(value: isize) -> usize {
+    syscall(SYSCALL_SEM_CREATE, [value as usize, 0, 0]) as usize
 }
 
 pub fn sys_sem_wait(sem_id: usize) -> isize {
@@ -142,24 +137,24 @@ pub fn sys_monitor_create() -> usize {
     syscall(SYSCALL_MONITOR_CREATE, [0, 0, 0]) as usize
 }
 
-pub fn sys_enter(monitor_id: usize) -> isize {
-    syscall(SYSCALL_ENTER, [monitor_id, 0, 0])
+pub fn sys_monitor_enter(monitor_id: usize) -> isize {
+    syscall(SYSCALL_MONITOR_ENTER, [monitor_id, 0, 0])
 }
 
-pub fn sys_leave(monitor_id: usize) -> isize {
-    syscall(SYSCALL_LEAVE, [monitor_id, 0, 0])
+pub fn sys_monitor_leave(monitor_id: usize) -> isize {
+    syscall(SYSCALL_MONITOR_LEAVE, [monitor_id, 0, 0])
 }
 
-pub fn sys_create_res_sem(monitor_id: usize) -> usize {
-    syscall(SYSCALL_CREATE_RES_SEM, [monitor_id, 0, 0]) as usize
+pub fn sys_monitor_create_res_sem(monitor_id: usize) -> usize {
+    syscall(SYSCALL_MONITOR_CREATE_RES_SEM, [monitor_id, 0, 0]) as usize
 }
 
-pub fn sys_wait(monitor_id: usize, res_id: usize) -> isize {
-    syscall(SYSCALL_WAIT, [monitor_id, res_id, 0])
+pub fn sys_monitor_wait(monitor_id: usize, res_id: usize) -> isize {
+    syscall(SYSCALL_MONITOR_WAIT, [monitor_id, res_id, 0])
 }
 
-pub fn sys_signal(monitor_id: usize, res_id: usize) -> isize {
-    syscall(SYSCALL_SIGNAL, [monitor_id, res_id, 0])
+pub fn sys_monitor_signal(monitor_id: usize, res_id: usize) -> isize {
+    syscall(SYSCALL_MONITOR_SIGNAL, [monitor_id, res_id, 0])
 }
 
 pub fn sys_monitor_destroy(monitor_id: usize) -> isize {

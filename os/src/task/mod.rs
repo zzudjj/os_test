@@ -40,7 +40,7 @@ pub use processor::{
     current_user_process, current_trap_cx_va,
     Processor,
 };
-/// Suspend the current 'Running' task and run the next task in task list.
+/// 暂停当前运行线程并运行下一线程
 pub fn suspend_current_and_run_next() {
     // There must be an application running.
     let task = take_current_task().unwrap();
@@ -62,7 +62,7 @@ pub fn suspend_current_and_run_next() {
 /// pid of usertests app in make run TEST=1
 pub const IDLE_PID: usize = 0;
 
-/// Exit the current 'Running' task and run the next task in task list.
+/// 退出当前线程并运行下一线程
 pub fn exit_current_and_run_next(exit_code: i32) {
     // take from Processor
     let task = take_current_task().unwrap();
@@ -120,6 +120,7 @@ pub fn exit_current_and_run_next(exit_code: i32) {
     schedule(&mut _unused as *mut _);
 }
 
+///阻塞当前线程并运行下一线程
 pub fn block_current_and_run_next() {
     let thread = take_current_task().unwrap();
     let mut thread_inner = thread.inner_exclusive_access();

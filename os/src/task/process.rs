@@ -10,24 +10,25 @@ use alloc::sync::{Arc, Weak};
 use alloc::vec::Vec;
 use core::cell::RefMut;
 
+///进程控制块
 pub struct ProcessControlBlock {
-    // immutable
-    pub pid: PidHandle,
-    // mutable
+    // 不变量
+    pub pid: PidHandle, //进程标识符
+    // 可变量
     inner: UPSafeCell<ProcessControlBlockInner>,
 }
 
 pub struct ProcessControlBlockInner {
-    pub is_zombie: bool,
-    pub memory_set: MemorySet,
-    pub parent: Option<Weak<ProcessControlBlock>>,
-    pub children: Vec<Arc<ProcessControlBlock>>,
-    pub exit_code: i32,
-    pub threads: Vec<Option<Arc<ThreadControlBlock>>>,
-    pub mutex_list: Vec<Option<Arc<Mutex>>>,
-    pub sem_list: Vec<Option<Arc<Semaphore>>>,
-    pub monitor_list: Vec<Option<Arc<HoareMonitor>>>,
-    pub thread_res_allocator: RecycleAllocator,
+    pub is_zombie: bool, //是否是僵尸进程
+    pub memory_set: MemorySet, //地址空间
+    pub parent: Option<Weak<ProcessControlBlock>>, //父进程
+    pub children: Vec<Arc<ProcessControlBlock>>, //子进程队列
+    pub exit_code: i32, //进程退出码
+    pub threads: Vec<Option<Arc<ThreadControlBlock>>>, //该进程下的线程队列
+    pub mutex_list: Vec<Option<Arc<Mutex>>>, //互斥锁资源队列
+    pub sem_list: Vec<Option<Arc<Semaphore>>>, //信号量资源队列
+    pub monitor_list: Vec<Option<Arc<HoareMonitor>>>, //霍尔管程资源队列
+    pub thread_res_allocator: RecycleAllocator, //线程资源分配器
 }
 
 impl ProcessControlBlockInner {
@@ -58,15 +59,16 @@ impl ProcessControlBlockInner {
 }
 
 impl ProcessControlBlock {
+    ///获取inner的可变引用
     pub fn inner_exclusive_access(&self) -> RefMut<'_, ProcessControlBlockInner> {
         self.inner.exclusive_access()
     }
+    ///新建一个进程控制块
     pub fn new(elf_data: &[u8]) -> Arc<Self> {
-        // memory_set with elf program headers/trampoline/trap context/user stack
+         //需要注意原本的MemorySet::from_elf(elf_data)方法需要改进以适应当前需求
         let (memory_set, ustack_base, entry_point) = MemorySet::from_elf(elf_data);
         // alloc a pid and a kernel stack in kernel space
         let pid_handle = pid_alloc();
-        // push a task context which goes to trap_return to the top of kernel stack
         let process = Arc::new(Self {
             pid: pid_handle,
             inner: unsafe {
@@ -109,10 +111,9 @@ impl ProcessControlBlock {
         insert_into_pid2process(process.getpid(), process.clone());
         process
     }
-
+    ///此方法可以指定进程将要执行的代码
     pub fn exec(&self, elf_data: &[u8]) {
         assert_eq!(self.inner_exclusive_access().thread_count(), 1);
-        // memory_set with elf program headers/trampoline/trap context/user stack
         let (memory_set, ustack_base, entry_point) = MemorySet::from_elf(elf_data);
         self.inner_exclusive_access().memory_set = memory_set;
         let task = self.inner_exclusive_access().get_task(0);
@@ -132,14 +133,12 @@ impl ProcessControlBlock {
         *task_inner.get_trap_cx() = trap_cx;
         // **** release inner automatically
     }
-    
+    ///创建进程的子进程
     pub fn fork(self: &Arc<Self>) -> Arc<Self> {
         // ---- access parent PCB exclusively
         let mut parent_inner = self.inner_exclusive_access();
         assert_eq!(parent_inner.thread_count(), 1);
-        // copy user space(include trap context)
         let memory_set = MemorySet::from_existed_user(&parent_inner.memory_set);
-        // alloc a pid and a kernel stack in kernel space
         let pid_handle = pid_alloc();
         let child_process = Arc::new(ProcessControlBlock {
             pid: pid_handle,
@@ -183,7 +182,7 @@ impl ProcessControlBlock {
         insert_into_pid2process(child_process.getpid(), child_process.clone());
         child_process
     }
-
+    ///获取进程标识符
     pub fn getpid(&self) -> usize {
         self.pid.0
     }

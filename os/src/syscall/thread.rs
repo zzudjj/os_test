@@ -4,8 +4,8 @@ use crate::mm::KERNEL_SPACE;
 use crate::task::{add_task, current_task, current_user_process, ThreadControlBlock};
 use crate::trap::{trap_handler, TrapContext};
 
-
-pub fn sys_thread_create(entry: usize, arg:usize) -> isize{
+///创建线程
+pub fn sys_thread_create(entry: usize, arg:usize) -> isize {
     let process = current_user_process();
     let ustack_base = current_task().unwrap().inner_exclusive_access().res.as_ref().unwrap().ustack_base();
     let new_thread = Arc::new(ThreadControlBlock::new(process.clone(), ustack_base, true));
@@ -31,6 +31,7 @@ pub fn sys_thread_create(entry: usize, arg:usize) -> isize{
     new_thread_id as isize
 }
 
+///获取线程标识符
 pub fn sys_gettid() -> isize {
     current_task()
     .unwrap()
@@ -41,6 +42,7 @@ pub fn sys_gettid() -> isize {
     .tid as isize
 }
 
+///等待线程结束
 pub fn sys_waittid(tid: usize) -> i32 {
     let thread = current_task().unwrap();
     let thread_inner = thread.inner_exclusive_access();

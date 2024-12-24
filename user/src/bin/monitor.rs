@@ -6,8 +6,8 @@ extern crate user_lib;
 extern crate alloc;
 
 use alloc::{format, string::String, vec::Vec};
-use user_lib::{create_res_sem, enter, exit, gettid, leave, monitor_create, monitor_destroy,
-     monitor_signal, monitor_wait, sleep, thread_create, waittid};
+use lazy_static::*;
+use user_lib::{exit, gettid, sleep, thread_create, waittid, HoareMonitor};
 
 struct CycleBuf {
     read: usize,
@@ -15,7 +15,9 @@ struct CycleBuf {
     buf: [i32; 6],
 }
 
-static mut MONITOR: usize = 0;
+lazy_static! {
+    static ref MONITOR: HoareMonitor = HoareMonitor::new();
+}
 static mut FULL: usize = 0;
 static mut EMPTY: usize = 0;
 static mut FULL_COUNT: usize = 0;
@@ -47,39 +49,39 @@ pub fn read_i32() -> i32 {
 
 pub fn processor(v: *const i32) {
     unsafe {
+        MONITOR.enter();
         for _ in 0..5 {
-            enter(MONITOR);
             let value = &*v;
             if FULL_COUNT == 6 {
-                monitor_wait(MONITOR, FULL);
+                MONITOR.wait(FULL);
             }
             write_i32(*value);
             FULL_COUNT += 1;
             let last_write_ptr = (CYC_BUF.write + 6 - 1) % 6;
             let history= format!("processor{} wrote the value {} in buf{}", gettid(), *value, last_write_ptr);
             HISTORY.push(history);
-            monitor_signal(MONITOR, EMPTY);
-            leave(MONITOR);
+            MONITOR.signal( EMPTY);
         }
+       MONITOR.leave();
     }
     exit(0);
 }
 
 pub fn consumer() {
     unsafe {
+        MONITOR.enter();
         for _ in 0..10 {
-            enter(MONITOR);
             if FULL_COUNT == 0 {
-                monitor_wait(MONITOR, EMPTY);
+                MONITOR.wait( EMPTY);
             }
             let value = read_i32();
             FULL_COUNT -= 1;
             let last_read_ptr = (CYC_BUF.read + 6 - 1) % 6;
             let history= format!("consumer{} read the value {} from buf{}", gettid(), value, last_read_ptr);
             HISTORY.push(history);
-            monitor_signal(MONITOR, FULL);
-            leave(MONITOR);
+            MONITOR.signal( FULL);
         }
+       MONITOR.leave();
     }
     exit(0);
 }
@@ -88,9 +90,8 @@ pub fn consumer() {
 #[no_mangle]
 pub fn main() -> isize {
     unsafe {
-        MONITOR =  monitor_create();
-        EMPTY = create_res_sem(MONITOR);
-        FULL = create_res_sem(MONITOR);
+        EMPTY = MONITOR.create_res_sem();
+        FULL = MONITOR.create_res_sem();
     }
     let mut consumers = Vec::new();
     let mut processors = Vec::new();
@@ -113,9 +114,7 @@ pub fn main() -> isize {
         waittid(*tid as usize);
         println!("consumer{}:exited", tid);
     }
-    unsafe {
-        monitor_destroy(MONITOR);
-    }
+    MONITOR.destroy();
     unsafe {
         for history in HISTORY.iter() {
             println!("{}",history.as_str());

@@ -26,7 +26,7 @@ impl HoareMonitor {
                         res_count_list: Vec::new(),
                         mutex: Arc::new(Mutex::new()),
                         next_count: 0,
-                        next: Arc::new(Semaphore::new()),
+                        next: Arc::new(Semaphore::new(0)),
                     }
                 )
             }
@@ -39,7 +39,7 @@ impl HoareMonitor {
 
     pub fn create_res_sem(&self) -> usize {
         let mut inner = self.inner_exclusive_access();
-        let sem = Arc::new(Semaphore::new());
+        let sem = Arc::new(Semaphore::new(0));
         inner.res_sem_list.push(sem);
         inner.res_count_list.push(0);
         let res_id = inner.res_sem_list.len() - 1;

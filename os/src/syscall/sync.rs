@@ -4,7 +4,7 @@ use crate::task::{block_current_and_run_next, current_task, current_user_process
 use crate::timer::{add_timer, get_time_ms};
 
 
-
+///线程睡眠系统调用
 pub fn sys_sleep(ms: usize) -> isize {
     let expire_ms = get_time_ms() + ms;
     let thread = current_task().unwrap();
@@ -13,6 +13,7 @@ pub fn sys_sleep(ms: usize) -> isize {
     0
 }
 
+///互斥锁创建系统调用
 pub fn sys_mutex_create() -> usize {
     let process = current_user_process();
     let mut process_inner = process.inner_exclusive_access();
@@ -24,7 +25,8 @@ pub fn sys_mutex_create() -> usize {
     mutex_id
 }
 
-pub fn sys_lock(mutex_id: usize) -> isize {
+///互斥锁
+pub fn sys_mutex_lock(mutex_id: usize) -> isize {
     let process = current_user_process();
     let process_inner = process.inner_exclusive_access();
     let mutex = process_inner.mutex_list[mutex_id].as_ref().unwrap().clone();
@@ -34,7 +36,7 @@ pub fn sys_lock(mutex_id: usize) -> isize {
     0
 }
 
-pub fn sys_unlock(mutex_id: usize) -> isize {
+pub fn sys_mutex_unlock(mutex_id: usize) -> isize {
     let process = current_user_process();
     let process_inner = process.inner_exclusive_access();
     let mutex = process_inner.mutex_list[mutex_id].as_ref().unwrap().clone();
@@ -53,26 +55,16 @@ pub fn sys_mutex_destroy(mutex_id: usize) -> isize {
     0
 }
 
-pub fn sys_sem_create() -> usize {
+pub fn sys_sem_create(value: isize) -> usize {
     let process = current_user_process();
     let mut process_inner = process.inner_exclusive_access();
     let sem_list = &mut process_inner.sem_list;
-    let new_sem = Arc::new(Semaphore::new());
+    let new_sem = Arc::new(Semaphore::new(value));
     sem_list.push(Some(new_sem));
     let sem_id = sem_list.len() - 1;
     drop(process_inner);
     drop(process);
     sem_id
-}
-
-pub fn sys_sem_init(sem_id:usize, value: isize) -> isize {
-    let process = current_user_process();
-    let process_inner = process.inner_exclusive_access();
-    let sem = process_inner.sem_list[sem_id].as_ref().unwrap().clone();
-    drop(process_inner);
-    drop(process);
-    sem.sem_init(value);
-    0
 }
 
 pub fn sys_sem_wait(sem_id: usize) -> isize {
@@ -116,7 +108,7 @@ pub fn sys_monitor_create() -> usize {
     monitor_id
 }
 
-pub fn sys_enter(monitor_id: usize) -> isize {
+pub fn sys_monitor_enter(monitor_id: usize) -> isize {
     let process = current_user_process();
     let process_inner = process.inner_exclusive_access();
     let monitor = process_inner.monitor_list[monitor_id].as_ref().unwrap().clone();
@@ -126,7 +118,7 @@ pub fn sys_enter(monitor_id: usize) -> isize {
     0
 }
 
-pub fn sys_leave(monitor_id: usize) -> isize {
+pub fn sys_monitor_leave(monitor_id: usize) -> isize {
     let process = current_user_process();
     let process_inner = process.inner_exclusive_access();
     let monitor = process_inner.monitor_list[monitor_id].as_ref().unwrap().clone();
@@ -136,7 +128,7 @@ pub fn sys_leave(monitor_id: usize) -> isize {
     0
 }
 
-pub fn sys_create_res_sem(monitor_id: usize) -> usize {
+pub fn sys_monitor_create_res_sem(monitor_id: usize) -> usize {
     let process = current_user_process();
     let process_inner = process.inner_exclusive_access();
     let monitor = process_inner.monitor_list[monitor_id].as_ref().unwrap().clone();
@@ -145,7 +137,7 @@ pub fn sys_create_res_sem(monitor_id: usize) -> usize {
     monitor.create_res_sem()
 }
 
-pub fn sys_wait(monitor_id: usize, res_id: usize) -> isize {
+pub fn sys_monitor_wait(monitor_id: usize, res_id: usize) -> isize {
     let process = current_user_process();
     let process_inner = process.inner_exclusive_access();
     let monitor = process_inner.monitor_list[monitor_id].as_ref().unwrap().clone();
@@ -155,7 +147,7 @@ pub fn sys_wait(monitor_id: usize, res_id: usize) -> isize {
     0
 }
 
-pub fn sys_signal(monitor_id: usize, res_id: usize) -> isize {
+pub fn sys_monitor_signal(monitor_id: usize, res_id: usize) -> isize {
     let process = current_user_process();
     let process_inner = process.inner_exclusive_access();
     let monitor = process_inner.monitor_list[monitor_id].as_ref().unwrap().clone();

@@ -63,11 +63,11 @@ pub fn run_tasks() {
         }
     }
 }
-///Take the current task,leaving a None in its place
+///将当前运行线程的线程控制块从处理器管理结构中取出
 pub fn take_current_task() -> Option<Arc<ThreadControlBlock>> {
     PROCESSOR.exclusive_access().take_current()
 }
-///Get running task
+///克隆一份当前运行线程的线程控制块返回
 pub fn current_task() -> Option<Arc<ThreadControlBlock>> {
     PROCESSOR.exclusive_access().current()
 }
@@ -77,7 +77,7 @@ pub fn current_user_token() -> usize {
     let token = task.get_user_token();
     token
 }
-
+///获取当前运行的进程的进程控制块的引用
 pub fn current_user_process() -> Arc<ProcessControlBlock> {
     current_task().unwrap().process.upgrade().unwrap()
 }
@@ -88,7 +88,7 @@ pub fn current_trap_cx() -> &'static mut TrapContext {
         .inner_exclusive_access()
         .get_trap_cx()
 }
-
+///获取当前运行线程的Trap上下文的虚拟地址
 pub fn current_trap_cx_va() -> usize {
     current_task()
     .unwrap()

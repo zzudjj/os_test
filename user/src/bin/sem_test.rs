@@ -6,7 +6,8 @@ extern crate user_lib;
 extern crate alloc;
 
 use alloc::{format, string::String, vec::Vec};
-use user_lib::{exit, gettid, sem_create, sem_destroy, sem_init, sem_post, sem_wait, sleep, thread_create, waittid};
+use lazy_static::*;
+use user_lib::{exit, gettid, Semaphore, sleep, thread_create, waittid};
 
 struct CycleBuf {
     read: usize,
@@ -14,9 +15,11 @@ struct CycleBuf {
     buf: [i32; 6],
 }
 
-static mut MUTEX: usize = 0;
-static mut FULL: usize = 0;
-static mut EMPTY: usize = 0;
+lazy_static! {
+    static ref MUTEX: Semaphore = Semaphore::new(1);
+    static ref FULL: Semaphore = Semaphore::new(0);
+    static ref EMPTY: Semaphore = Semaphore::new(6);
+}
 static mut HISTORY: Vec<String> = Vec::new();
 static mut CYC_BUF: CycleBuf = CycleBuf {
     read: 0,
@@ -47,14 +50,14 @@ pub fn processor(v: *const i32) {
     unsafe {
         for _ in 0..5 {
             let value = &*v;
-            sem_wait(EMPTY);
-            sem_wait(MUTEX);
+            EMPTY.wait();
+            MUTEX.wait();
             write_i32(*value);
             let last_write_ptr = (CYC_BUF.write + 6 - 1) % 6;
             let history= format!("processor{} wrote the value {} in buf{}", gettid(), *value, last_write_ptr);
             HISTORY.push(history);
-            sem_post(MUTEX);
-            sem_post(FULL);
+            MUTEX.post();
+            FULL.post();
         }
     }
     exit(0);
@@ -63,14 +66,14 @@ pub fn processor(v: *const i32) {
 pub fn consumer() {
     unsafe {
         for _ in 0..10 {
-            sem_wait(FULL);
-            sem_wait(MUTEX);
+            FULL.wait();
+            MUTEX.wait();
             let value = read_i32();
             let last_read_ptr = (CYC_BUF.read + 6 - 1) % 6;
             let history= format!("consumer{} read the value {} from buf{}", gettid(), value, last_read_ptr);
             HISTORY.push(history);
-            sem_post(MUTEX);
-            sem_post(EMPTY);
+            MUTEX.post();
+            EMPTY.post();
         }
     }
     exit(0);
@@ -79,14 +82,6 @@ pub fn consumer() {
 
 #[no_mangle]
 pub fn main() -> isize {
-    unsafe {
-        MUTEX =  sem_create();
-        FULL = sem_create();
-        EMPTY = sem_create();
-        sem_init(MUTEX, 1);
-        sem_init(FULL, 0);
-        sem_init(EMPTY, 6);
-    }
     let mut consumers = Vec::new();
     let mut processors = Vec::new();
     let values = [1,2,3,4];
@@ -108,11 +103,9 @@ pub fn main() -> isize {
         waittid(*tid as usize);
         println!("consumer{}:exited", tid);
     }
-    unsafe {
-        sem_destroy(MUTEX);
-        sem_destroy(FULL);
-        sem_destroy(EMPTY);
-    }
+    MUTEX.destroy();
+    EMPTY.destroy();
+    FULL.destroy();
     unsafe {
         for history in HISTORY.iter() {
             println!("{}",history.as_str());
