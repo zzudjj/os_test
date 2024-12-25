@@ -10,6 +10,7 @@ mod syscall;
 
 use buddy_system_allocator::LockedHeap;
 use syscall::*;
+use core::cell::{RefCell, RefMut};
 
 const USER_HEAP_SIZE: usize = 16384;
 
@@ -39,78 +40,68 @@ fn main() -> i32 {
     panic!("Cannot find main!");
 }
 
+///互斥锁
 pub struct Mutex(usize);
 
 impl Mutex {
-
+    ///创建互斥锁
     pub fn new() -> Self {
         Self(sys_mutex_create())
     }
-
+    ///申请锁
     pub fn lock(&self) -> isize {
         sys_mutex_lock(self.0)
     }
-
+    ///释放锁
     pub fn unlock(&self) -> isize {
         sys_mutex_unlock(self.0)
     }
-
+    ///销毁互斥锁
     pub fn destroy(&self) -> isize {
         sys_mutex_destroy(self.0)
     }
 }
 
+///信号量
 pub struct Semaphore(usize);
 
 impl Semaphore {
-    
+    ///创建一个信号量
     pub fn new(value: isize) -> Self {
         Self(sys_sem_create(value))
     }
-
+    ///P操作
     pub fn wait(&self) -> isize {
         sys_sem_wait(self.0)
     }
-
+    ///V操作
     pub fn post(&self) -> isize {
         sys_sem_post(self.0)
     }
-
+    ///注销此信号量
     pub fn destroy(&self) -> isize {
         sys_sem_destroy(self.0)
     }
 }
 
-pub struct HoareMonitor(usize);
+pub struct UPSafeCell<T> {
+    /// inner data
+    inner: RefCell<T>,
+}
 
-impl HoareMonitor {
+unsafe impl<T> Sync for UPSafeCell<T> {}
 
-    pub fn new() -> Self {
-        Self(sys_monitor_create())
+impl<T> UPSafeCell<T> {
+    /// User is responsible to guarantee that inner struct is only used in
+    /// uniprocessor.
+    pub unsafe fn new(value: T) -> Self {
+        Self {
+            inner: RefCell::new(value),
+        }
     }
-
-    pub fn create_res_sem(&self) -> usize {
-        sys_monitor_create_res_sem(self.0)
-    } 
-
-    pub fn enter(&self) -> isize {
-        sys_monitor_enter(self.0)
-    }
-
-    pub fn leave(&self) -> isize {
-        sys_monitor_leave(self.0)
-    }
- 
-    pub fn wait(&self, res_id: usize) -> isize {
-        sys_monitor_wait(self.0, res_id)
-    }
-
-    pub fn signal(&self, res_id: usize) -> isize {
-        sys_monitor_signal(self.0, res_id)
-    }
-
-    pub fn destroy(&self) -> isize {
-        sys_monitor_destroy(self.0)
+    /// Exclusive access inner data in UPSafeCell. Panic if the data has been borrowed.
+    pub fn exclusive_access(&self) -> RefMut<'_, T> {
+        self.inner.borrow_mut()
     }
 }
 
@@ -185,6 +176,39 @@ pub fn waittid(tid: usize) -> isize {
     }
 }
 
+pub fn monitor_create() -> usize {
+    sys_monitor_create()
+}
+
+pub fn monitor_enter(monitor_id: usize) -> isize {
+    sys_monitor_enter(monitor_id)
+}
+
+pub fn monitor_leave(monitor_id: usize) -> isize {
+    sys_monitor_leave(monitor_id)
+}
+
+pub fn monitor_create_res_sem(monitor_id: usize) -> usize {
+    sys_monitor_create_res_sem(monitor_id)
+}
+
+pub fn monitor_wait(monitor_id: usize, res_id: usize) -> isize {
+    sys_monitor_wait(monitor_id, res_id)
+}
+
+pub fn monitor_signal(monitor_id: usize, res_id: usize) -> isize {
+    sys_monitor_signal(monitor_id, res_id)
+}
+
+pub fn monitor_destroy(monitor_id: usize) -> isize {
+    sys_monitor_destroy(monitor_id)
+}
+
+pub fn monitor_check(monitor_id: usize) -> isize {
+    sys_monitor_check(monitor_id)
+}
+
+
 // pub fn mutex_create() -> usize {
 //     sys_mutex_create()
 // }
@@ -220,32 +244,3 @@ pub fn waittid(tid: usize) -> isize {
 // pub fn sem_destroy(sem_id: usize) -> isize {
 //     sys_sem_destroy(sem_id)
 // }
-
-// pub fn monitor_create() -> usize {
-//     sys_monitor_create()
-// }
-
-// pub fn monitor_enter(monitor_id: usize) -> isize {
-//     sys_monitor_enter(monitor_id)
-// }
-
-// pub fn monitor_leave(monitor_id: usize) -> isize {
-//     sys_monitor_leave(monitor_id)
-// }
-
-// pub fn monitor_create_res_sem(monitor_id: usize) -> usize {
-//     sys_monitor_create_res_sem(monitor_id)
-// }
-
-// pub fn monitor_wait(monitor_id: usize, res_id: usize) -> isize {
-//     sys_monitor_wait(monitor_id, res_id)
-// }
-
-// pub fn monitor_signal(monitor_id: usize, res_id: usize) -> isize {
-//     sys_monitor_signal(monitor_id, res_id)
-// }
-
-// pub fn monitor_destroy(monitor_id: usize) -> isize {
-//     sys_monitor_destroy(monitor_id)
-// }
-

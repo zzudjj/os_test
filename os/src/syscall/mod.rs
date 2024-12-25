@@ -37,6 +37,7 @@ const SYSCALL_MONITOR_CREATE_RES_SEM: usize = 513;
 const SYSCALL_MONITOR_WAIT: usize = 514;
 const SYSCALL_MONITOR_SIGNAL: usize = 515;
 const SYSCALL_MONITOR_DESTROY: usize = 516;
+const SYSCALL_MONITOR_CHECK: usize = 517;
 
 mod fs;
 mod process;
@@ -77,6 +78,7 @@ pub fn syscall(syscall_id: usize, args: [usize; 3]) -> isize {
         SYSCALL_MONITOR_CREATE_RES_SEM => sys_monitor_create_res_sem(args[0]) as isize,
         SYSCALL_MONITOR_WAIT => sys_monitor_wait(args[0], args[1]),
         SYSCALL_MONITOR_SIGNAL => sys_monitor_signal(args[0], args[1]),
+        SYSCALL_MONITOR_CHECK => sys_monitor_check(args[0]),
         SYSCALL_MONITOR_DESTROY => sys_monitor_destroy(args[0]),
         _ => panic!("Unsupported syscall_id: {}", syscall_id),
     }

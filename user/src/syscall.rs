@@ -28,6 +28,7 @@ const SYSCALL_MONITOR_CREATE_RES_SEM: usize = 513;
 const SYSCALL_MONITOR_WAIT: usize = 514;
 const SYSCALL_MONITOR_SIGNAL: usize = 515;
 const SYSCALL_MONITOR_DESTROY: usize = 516;
+const SYSCALL_MONITOR_CHECK: usize = 517;
 
 fn syscall(id: usize, args: [usize; 3]) -> isize {
     let mut ret: isize;
@@ -155,6 +156,10 @@ pub fn sys_monitor_wait(monitor_id: usize, res_id: usize) -> isize {
 
 pub fn sys_monitor_signal(monitor_id: usize, res_id: usize) -> isize {
     syscall(SYSCALL_MONITOR_SIGNAL, [monitor_id, res_id, 0])
+}
+
+pub fn sys_monitor_check(monitor_id: usize) -> isize {
+    syscall(SYSCALL_MONITOR_CHECK, [monitor_id, 0, 0])
 }
 
 pub fn sys_monitor_destroy(monitor_id: usize) -> isize {

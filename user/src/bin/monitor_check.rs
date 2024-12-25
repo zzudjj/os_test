@@ -7,9 +7,7 @@ extern crate alloc;
 
 use alloc::{format, string::String, vec::Vec};
 use lazy_static::*;
-use user_lib::{gettid, monitor_create, monitor_create_res_sem, 
-        monitor_destroy, monitor_enter, monitor_leave, monitor_signal,
-        monitor_wait, sleep, thread_create, waittid, UPSafeCell};
+use user_lib::{gettid, monitor_check, monitor_create, monitor_create_res_sem, monitor_destroy, monitor_enter, monitor_leave, monitor_signal, monitor_wait, sleep, thread_create, waittid, UPSafeCell};
 
 struct CycleBuf {
     read: usize,
@@ -21,6 +19,7 @@ struct Monitor {
     monitor_id: usize,
     full_res_id: usize,
     empty_res_id: usize,
+    test_res_id: usize,
     full_count: i32,
     history: Vec<String>,
     cyc_buf: CycleBuf,
@@ -32,10 +31,12 @@ impl Monitor {
         let monitor_id = monitor_create();
         let full_res_id = monitor_create_res_sem(monitor_id);
         let empty_res_id = monitor_create_res_sem(monitor_id);
+        let test_res_id = monitor_create_res_sem(monitor_id);
         Self {
             monitor_id: monitor_create(),
             full_res_id: full_res_id,
             empty_res_id: empty_res_id,
+            test_res_id: test_res_id,
             full_count: 0,
             history: Vec::new(),
             cyc_buf: CycleBuf {
@@ -59,6 +60,7 @@ impl Monitor {
             let last_write_ptr = (self.cyc_buf.write + 6 - 1) % 6;
             let history= format!("processor{} wrote the value {} in buf{}", gettid(), value, last_write_ptr);
             self.history.push(history);
+
             monitor_signal(self.monitor_id, self.full_res_id);
         }
         monitor_leave(self.monitor_id);
@@ -78,6 +80,7 @@ impl Monitor {
             let last_read_ptr = (self.cyc_buf.read + 6 - 1) % 6;
             let history= format!("consumer{} read the value {} from buf{}", gettid(), value, last_read_ptr);
             self.history.push(history);
+            monitor_wait(self.monitor_id, self.test_res_id);
             monitor_signal(self.monitor_id, self.empty_res_id);
         }
         monitor_leave(self.monitor_id);
@@ -94,6 +97,10 @@ impl Monitor {
             print!("{} ",value);
         }
         println!("");
+    }
+
+    pub fn check_self(&self) {
+        monitor_check(self.monitor_id);
     }
 
     pub fn destroy(&self) {
@@ -116,6 +123,9 @@ pub fn consumer() {
    monitor.exclusive_access().consume();
 }
 
+pub fn checker() {
+    monitor.exclusive_access().check_self();
+}
 
 #[no_mangle]
 pub fn main() -> isize {
@@ -132,6 +142,9 @@ pub fn main() -> isize {
             thread_create(consumer as usize, 0)
         )
     }
+
+    thread_create(checker as usize, 0);
+
     for tid in processors.iter() {
         waittid(*tid as usize);
         println!("processor{}:exited", tid);
