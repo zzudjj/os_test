@@ -18,14 +18,14 @@ pub struct CycleBuf {
 }
 
 pub struct Monitor {
-    inner: UPSafeCell<MonitorInner>
-}
-
-pub struct MonitorInner {
     monitor_id: usize,
     full_res_id: usize,
     empty_res_id: usize,
     test_res_id: usize,
+    inner: UPSafeCell<MonitorInner>
+}
+
+pub struct MonitorInner {
     full_count: i32,
     history: Vec<String>,
     cyc_buf: CycleBuf,
@@ -39,13 +39,13 @@ impl Monitor {
         let empty_res_id = monitor_create_res_sem(monitor_id);
         let test_res_id = monitor_create_res_sem(monitor_id);
         Self {
+            monitor_id: monitor_create(),
+            full_res_id: full_res_id,
+            empty_res_id: empty_res_id,
+            test_res_id: test_res_id,
             inner: unsafe {
                 UPSafeCell::new(
                     MonitorInner {
-                        monitor_id: monitor_create(),
-                        full_res_id: full_res_id,
-                        empty_res_id: empty_res_id,
-                        test_res_id: test_res_id,
                         full_count: 0,
                         history: Vec::new(),
                         cyc_buf: CycleBuf {
@@ -64,17 +64,12 @@ impl Monitor {
     }
 
     pub fn process(&self, value: i32) {
-        let inner = self.inner_exclusive_access();
-        let monitor_id = inner.monitor_id;
-        let empty_res_id = inner.empty_res_id;
-        let full_res_id = inner.full_res_id;
-        drop(inner);
-        monitor_enter(monitor_id);
+        monitor_enter(self.monitor_id);
         for _ in 0..5 {
             let inner = self.inner_exclusive_access();
             if inner.full_count == 6 {
                 drop(inner);
-                monitor_wait(monitor_id, empty_res_id);
+                monitor_wait(self.monitor_id, self.empty_res_id);
             }
             let mut inner = self.inner_exclusive_access();
             let last_write_ptr = inner.cyc_buf.write;
@@ -85,24 +80,18 @@ impl Monitor {
             let history= format!("processor{} wrote the value {} in buf{}", gettid(), value, last_write_ptr);
             inner.history.push(history);
             drop(inner);
-            monitor_signal(monitor_id, full_res_id);
+            monitor_signal(self.monitor_id, self.full_res_id);
         }
-        monitor_leave(monitor_id);
+        monitor_leave(self.monitor_id);
     } 
 
     pub fn consume(&self) {
-        let inner = self.inner_exclusive_access();
-        let monitor_id = inner.monitor_id;
-        let empty_res_id = inner.empty_res_id;
-        let full_res_id = inner.full_res_id;
-        let test_res_id = inner.test_res_id;
-        drop(inner);
-        monitor_enter(monitor_id);
+        monitor_enter(self.monitor_id);
         for _ in 0..5 {
             let inner = self.inner_exclusive_access();
             if inner.full_count == 0 {
                 drop(inner);
-                monitor_wait(monitor_id, full_res_id);
+                monitor_wait(self.monitor_id, self.full_res_id);
             }
             let mut inner = self.inner_exclusive_access();
             let last_read_ptr = inner.cyc_buf.read;
@@ -114,10 +103,10 @@ impl Monitor {
             let history= format!("consumer{} read the value {} from buf{}", gettid(), value, last_read_ptr);
             inner.history.push(history);
             drop(inner);
-            monitor_wait(monitor_id, test_res_id);
-            monitor_signal(monitor_id, empty_res_id);
+            monitor_wait(self.monitor_id, self.test_res_id);
+            monitor_signal(self.monitor_id, self.empty_res_id);
         }
-        monitor_leave(monitor_id);
+        monitor_leave(self.monitor_id);
     } 
 
     pub fn print_history(&self) {
@@ -136,11 +125,11 @@ impl Monitor {
     }
 
     pub fn check_self(&self) {
-        monitor_check(self.inner_exclusive_access().monitor_id);
+        monitor_check(self.monitor_id);
     }
 
     pub fn destroy(&self) {
-        monitor_destroy(self.inner_exclusive_access().monitor_id);
+        monitor_destroy(self.monitor_id);
     }
 }
 
