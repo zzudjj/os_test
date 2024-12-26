@@ -9,7 +9,7 @@ use core::cell::RefMut;
 
 use alloc::{format, string::String, vec::Vec};
 use lazy_static::*;
-use user_lib::{gettid, monitor_check, monitor_create, monitor_create_res_sem, monitor_destroy, monitor_enter, monitor_leave, monitor_signal, monitor_wait, sleep, thread_create, waittid, UPSafeCell};
+use user_lib::{exit, gettid, monitor_check, monitor_create, monitor_create_res_sem, monitor_destroy, monitor_enter, monitor_leave, monitor_signal, monitor_wait, sleep, thread_create, waittid, UPSafeCell};
 
 pub struct CycleBuf {
     read: usize,
@@ -39,7 +39,7 @@ impl Monitor {
         let empty_res_id = monitor_create_res_sem(monitor_id);
         let test_res_id = monitor_create_res_sem(monitor_id);
         Self {
-            monitor_id: monitor_create(),
+            monitor_id: monitor_id,
             full_res_id: full_res_id,
             empty_res_id: empty_res_id,
             test_res_id: test_res_id,
@@ -70,6 +70,8 @@ impl Monitor {
             if inner.full_count == 6 {
                 drop(inner);
                 monitor_wait(self.monitor_id, self.empty_res_id);
+            } else {
+                drop(inner);
             }
             let mut inner = self.inner_exclusive_access();
             let last_write_ptr = inner.cyc_buf.write;
@@ -87,11 +89,13 @@ impl Monitor {
 
     pub fn consume(&self) {
         monitor_enter(self.monitor_id);
-        for _ in 0..5 {
+        for _ in 0..10 {
             let inner = self.inner_exclusive_access();
             if inner.full_count == 0 {
                 drop(inner);
                 monitor_wait(self.monitor_id, self.full_res_id);
+            } else {
+                drop(inner);
             }
             let mut inner = self.inner_exclusive_access();
             let last_read_ptr = inner.cyc_buf.read;
@@ -137,17 +141,24 @@ lazy_static! {
     static ref monitor: Monitor = Monitor::new();
 }
 
+static mut IS_END: bool = false;
+
 pub fn processor(v: *const i32) {
     let value = unsafe { &*v };
     monitor.process(*value);
+    exit(0);
 }
 
 pub fn consumer() {
    monitor.consume();
+    exit(0);
 }
 
 pub fn checker() {
-    monitor.check_self();
+    while unsafe{!IS_END} {
+        monitor.check_self();
+    }
+    exit(0);
 }
 
 #[no_mangle]
@@ -166,7 +177,7 @@ pub fn main() -> isize {
         )
     }
 
-    thread_create(checker as usize, 0);
+    let check_thread = thread_create(checker as usize, 0);
 
     for tid in processors.iter() {
         waittid(*tid as usize);
@@ -176,6 +187,10 @@ pub fn main() -> isize {
         waittid(*tid as usize);
         println!("consumer{}:exited", tid);
     }
+
+    unsafe { IS_END = true };
+    waittid(check_thread as usize);
+    println!("check_thread:exited");
     monitor.print_history();
     monitor.print_cyc_buf();
     monitor.destroy();

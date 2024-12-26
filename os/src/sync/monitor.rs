@@ -53,8 +53,8 @@ impl HoareMonitor {
         let inner = self.inner_exclusive_access();
         let mutex = inner.mutex.clone();
         drop(inner);
-        mutex.sem_wait();
         self.add_thread_count(1);
+        mutex.sem_wait();
     }
 
     pub fn leave(&self) {
@@ -111,24 +111,53 @@ impl HoareMonitor {
     #[allow(unused)]
     pub fn check_self(&self) -> isize{ 
         let mut waited_thread_count: isize = 0;
-        let inner = self.inner_exclusive_access();
-        for sem_count in inner.res_count_list.iter() {
-            waited_thread_count += *sem_count as isize;
+        let mut inner = self.inner_exclusive_access();
+        if inner.thread_count == 0 {
+            return 0;
         }
-        waited_thread_count += inner.next_count as isize;
+        for sem in inner.res_sem_list.iter() {
+            let sem_count = sem.inner_exclusive_access().waited_queue.len();
+            waited_thread_count += sem_count as isize;
+        }
+        waited_thread_count += inner.next.inner_exclusive_access().waited_queue.len() as isize;
+        waited_thread_count += inner.mutex.inner_exclusive_access().waited_queue.len() as isize;
         if waited_thread_count == inner.thread_count {
+            println!("[kernal] monitor_checker warning! threads will be killed");
             for sem in inner.res_sem_list.iter() {
-                println!("[kernel] 管程内部的线程集合可能出现了死锁或饥饿情况，将杀死管程内部的所有线程");
                 let sem_waited_queue = &mut sem.inner_exclusive_access().waited_queue;
                 while sem_waited_queue.len() > 0 {
                     let thread = sem_waited_queue.pop_front().unwrap();
                     let mut thread_inner = thread.inner_exclusive_access();
+                    println!("[kernal] thread{} is killed",thread_inner.res.as_ref().unwrap().tid);
                     thread_inner.exit_code = Some(-1);
                     thread_inner.res = None;
                     drop(thread_inner);
                     drop(thread);
                 }
             } 
+            let mutex = inner.mutex.clone();
+            let mutex_waited_queue = &mut mutex.inner_exclusive_access().waited_queue;
+            while mutex_waited_queue.len() > 0 {
+                let thread = mutex_waited_queue.pop_front().unwrap();
+                let mut thread_inner = thread.inner_exclusive_access();
+                println!("[kernal] thread{} is killed",thread_inner.res.as_ref().unwrap().tid);
+                thread_inner.exit_code = Some(-1);
+                thread_inner.res = None;
+                drop(thread_inner);
+                drop(thread);
+            }
+            let next = inner.next.clone();
+            let next_waited_queue = &mut next.inner_exclusive_access().waited_queue;
+            while next_waited_queue.len() > 0 {
+                let thread = next_waited_queue.pop_front().unwrap();
+                let mut thread_inner = thread.inner_exclusive_access();
+                println!("[kernal] thread{} is killed",thread_inner.res.as_ref().unwrap().tid);
+                thread_inner.exit_code = Some(-1);
+                thread_inner.res = None;
+                drop(thread_inner);
+                drop(thread);
+            }
+            inner.thread_count = 0;
             1
         } else {
             0
