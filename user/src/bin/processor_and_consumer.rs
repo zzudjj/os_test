@@ -91,9 +91,11 @@ pub fn main() -> isize {
         println!("consumer{}:exited", tid);
     }
     unsafe {
+        println!("-------------------HISTORY-----------------");
         for history in HISTORY.iter() {
             println!("{}",history.as_str());
         }
+        println!("-------------------CYC_BUF-----------------");
         for value in CYC_BUF.buf.iter() {
             print!("{} ",value);
         }

@@ -24,7 +24,8 @@ mod thread;
 
 use crate::loader::get_app_data_by_name;
 use crate::sbi::shutdown;
-use alloc::sync::Arc;
+use alloc::{sync::Arc, vec::Vec};
+use id::TaskUserRes;
 use lazy_static::*;
 use manager::{remove_from_pid2process, remove_task};
 pub use manager::{fetch_task, TaskManager};
@@ -102,17 +103,26 @@ pub fn exit_current_and_run_next(exit_code: i32) {
                 initproc_inner.children.push(child.clone());
             }
         }
-
+        let mut recycle_res = Vec::<TaskUserRes>::new();
         for thread in process_inner.threads.iter().filter(|t| t.is_some()) {
             let thread = thread.as_ref().unwrap();
             remove_inactive_task(thread.clone());
+            let mut thread_inner = thread.inner_exclusive_access();
+            if let Some(res) = thread_inner.res.take() {
+                recycle_res.push(res);
+            }
         }
+        drop(process_inner);
+        recycle_res.clear();
 
+        let mut process_inner = process.inner_exclusive_access();
         process_inner.children.clear();
+        
+        process_inner.memory_set.recycle_data_pages();
+
         while process_inner.threads.len() > 1 {
             process_inner.threads.pop();
         }
-        process_inner.memory_set.recycle_data_pages();
     }
     drop(process);
     // we do not have to save task context

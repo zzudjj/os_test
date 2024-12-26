@@ -21,7 +21,6 @@ pub struct Monitor {
     monitor_id: usize,
     full_res_id: usize,
     empty_res_id: usize,
-    test_res_id: usize,
     inner: UPSafeCell<MonitorInner>
 }
 
@@ -37,12 +36,10 @@ impl Monitor {
         let monitor_id = monitor_create();
         let full_res_id = monitor_create_res_sem(monitor_id);
         let empty_res_id = monitor_create_res_sem(monitor_id);
-        let test_res_id = monitor_create_res_sem(monitor_id);
         Self {
             monitor_id: monitor_id,
             full_res_id: full_res_id,
             empty_res_id: empty_res_id,
-            test_res_id: test_res_id,
             inner: unsafe {
                 UPSafeCell::new(
                     MonitorInner {
@@ -107,7 +104,6 @@ impl Monitor {
             let history= format!("consumer{} read the value {} from buf{}", gettid(), value, last_read_ptr);
             inner.history.push(history);
             drop(inner);
-            monitor_wait(self.monitor_id, self.test_res_id);
             monitor_signal(self.monitor_id, self.empty_res_id);
         }
         monitor_leave(self.monitor_id);
@@ -141,8 +137,6 @@ lazy_static! {
     static ref monitor: Monitor = Monitor::new();
 }
 
-static mut IS_END: bool = false;
-
 pub fn processor(v: *const i32) {
     let value = unsafe { &*v };
     monitor.process(*value);
@@ -155,10 +149,9 @@ pub fn consumer() {
 }
 
 pub fn checker() {
-    while unsafe{!IS_END} {
+    loop {
         monitor.check_self();
     }
-    exit(0);
 }
 
 #[no_mangle]
@@ -166,18 +159,21 @@ pub fn main() -> isize {
     let mut consumers = Vec::new();
     let mut processors = Vec::new();
     let values = [1,2,3,4];
+    //生产者将会生产20次
     for i in 0..4 {
         processors.push(
             thread_create(processor as usize, &values[i] as *const _ as usize)
         );
     }
-    for _ in 0..2 {
+    //消费者将会消费40次
+    //这时会出现饥饿的情况
+    for _ in 0..4 {
         consumers.push(
             thread_create(consumer as usize, 0)
         )
     }
 
-    let check_thread = thread_create(checker as usize, 0);
+    thread_create(checker as usize, 0);
 
     for tid in processors.iter() {
         waittid(*tid as usize);
@@ -187,10 +183,7 @@ pub fn main() -> isize {
         waittid(*tid as usize);
         println!("consumer{}:exited", tid);
     }
-
-    unsafe { IS_END = true };
-    waittid(check_thread as usize);
-    println!("check_thread:exited");
+    
     monitor.print_history();
     monitor.print_cyc_buf();
     monitor.destroy();
