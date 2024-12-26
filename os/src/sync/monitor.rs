@@ -67,8 +67,8 @@ impl HoareMonitor {
             let mutex = inner.mutex.clone();
             drop(inner);
             mutex.sem_post();
-            self.add_thread_count(-1);
         }
+        self.add_thread_count(-1);
     }
 
     pub fn wait(&self, res_id: usize) {
