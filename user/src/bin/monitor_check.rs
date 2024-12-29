@@ -111,6 +111,7 @@ impl Monitor {
 
     pub fn print_history(&self) {
         let inner = self.inner_exclusive_access();
+        println!("-------------------HISTORY-----------------");
         for his in inner.history.iter() {
             println!("{}",his.as_str());
         }
@@ -118,14 +119,15 @@ impl Monitor {
 
     pub fn print_cyc_buf(&self) {
         let inner = self.inner_exclusive_access();
+        println!("-------------------CYC_BUF-----------------");
         for value in inner.cyc_buf.buf.iter() {
             print!("{} ",value);
         }
         println!("");
     }
 
-    pub fn check_self(&self) {
-        monitor_check(self.monitor_id);
+    pub fn check_self(&self) -> isize{
+        monitor_check(self.monitor_id)
     }
 
     pub fn destroy(&self) {
@@ -150,8 +152,11 @@ pub fn consumer() {
 
 pub fn checker() {
     loop {
-        monitor.check_self();
+        if monitor.check_self() == 1 {
+            break;
+        }
     }
+    exit(0);
 }
 
 #[no_mangle]

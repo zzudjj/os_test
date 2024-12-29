@@ -69,8 +69,8 @@ impl Monitor {
         monitor_enter(self.monitor_id); //进入管程
         for _ in 0..5 {
             let inner = self.inner_exclusive_access();
-            //缓冲区已满，在empty等待队列中等待空白缓冲区
             if inner.full_count == 6 {
+                //缓冲区已满，在empty等待队列中等待空白缓冲区
                 drop(inner);
                 monitor_wait(self.monitor_id, self.empty_res_id);
             } else {
@@ -97,8 +97,8 @@ impl Monitor {
         monitor_enter(self.monitor_id); //进入管程
         for _ in 0..10 {
             let inner = self.inner_exclusive_access();
-            //空缓冲池，在full等待队列中等待满缓冲区
             if inner.full_count == 0 {
+                //空缓冲池，在full等待队列中等待满缓冲区
                 drop(inner);
                 monitor_wait(self.monitor_id, self.full_res_id);
             } else {
@@ -139,8 +139,8 @@ impl Monitor {
         println!("");
     }
     ///检测管程内部是否出现死锁或者饥饿情况
-    pub fn check_self(&self) {
-        monitor_check(self.monitor_id);
+    pub fn check_self(&self) -> isize{
+        monitor_check(self.monitor_id)
     }
     ///销毁管程
     pub fn destroy(&self) {
@@ -166,8 +166,12 @@ pub fn consumer() {
 ///管程守护者线程
 pub fn checker() {
     loop {
-        monitor.check_self();
+        if monitor.check_self() == 1 {
+            //管程内的所有线程均被杀死，守护线程已经没有继续下去的必要了
+            break;
+        }
     }
+    exit(0);
 }
 
 #[no_mangle]

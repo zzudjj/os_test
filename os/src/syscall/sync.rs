@@ -110,81 +110,91 @@ pub fn sys_sem_destroy(sem_id: usize) -> isize {
     drop(process);
     0
 }
-
+///管程资源创建的系统调用
 pub fn sys_monitor_create() -> usize {
     let process = current_user_process();
     let mut process_inner = process.inner_exclusive_access();
     let monitor_list = &mut process_inner.monitor_list;
     let new_monitor = Arc::new(HoareMonitor::new());
+    //将新的管程资源加入到管程资源管理队列中
     monitor_list.push(Some(new_monitor));
     let monitor_id = monitor_list.len() - 1;
     drop(process_inner);
     drop(process);
+    //返回新管程资源的标识符
     monitor_id
 }
-
+///进入指定管程系统调用
 pub fn sys_monitor_enter(monitor_id: usize) -> isize {
     let process = current_user_process();
     let process_inner = process.inner_exclusive_access();
+    //从进程的管程资源管理队列中获取指定的HoareMonitor实例
     let monitor = process_inner.monitor_list[monitor_id].as_ref().unwrap().clone();
     drop(process_inner);
     drop(process);
+    //调用管程内部方法，进入管程
     monitor.enter();
     0
 }
-
+///离开管程系统调用
 pub fn sys_monitor_leave(monitor_id: usize) -> isize {
     let process = current_user_process();
     let process_inner = process.inner_exclusive_access();
     let monitor = process_inner.monitor_list[monitor_id].as_ref().unwrap().clone();
     drop(process_inner);
     drop(process);
+    //调用管程内部方法，离开管程
     monitor.leave();
     0
 }
-
+///在管程中创建条件变量的系统调用
 pub fn sys_monitor_create_res_sem(monitor_id: usize) -> usize {
     let process = current_user_process();
     let process_inner = process.inner_exclusive_access();
     let monitor = process_inner.monitor_list[monitor_id].as_ref().unwrap().clone();
     drop(process_inner);
     drop(process);
+    //调用管程内部方法，在管程中创建条件变量
     monitor.create_res_sem()
 }
-
+///对指定管程的指定条件变量执行wait操作的系统调用
 pub fn sys_monitor_wait(monitor_id: usize, res_id: usize) -> isize {
     let process = current_user_process();
     let process_inner = process.inner_exclusive_access();
     let monitor = process_inner.monitor_list[monitor_id].as_ref().unwrap().clone();
     drop(process_inner);
     drop(process);
+    //调用管程内部方法，对指定管程的指定条件变量执行wait操作
     monitor.wait(res_id);
     0
 }
-
+///对指定管程的指定条件变量执行signal操作的系统调用
 pub fn sys_monitor_signal(monitor_id: usize, res_id: usize) -> isize {
     let process = current_user_process();
     let process_inner = process.inner_exclusive_access();
     let monitor = process_inner.monitor_list[monitor_id].as_ref().unwrap().clone();
     drop(process_inner);
     drop(process);
+    //调用管程内部方法，对指定管程的指定条件变量执行signal操作
     monitor.signal(res_id);
     0
 }
-
+///对指定管程进行饥饿或死锁检测的系统调用
 pub fn sys_monitor_check(monitor_id: usize) -> isize {
     let process = current_user_process();
     let process_inner = process.inner_exclusive_access();
     let monitor = process_inner.monitor_list[monitor_id].as_ref().unwrap().clone();
     drop(process_inner);
     drop(process);
+    //调用管程内部方法，对指定管程进行检测
     monitor.check_self();
     0
 }
-
+///销毁指定管程资源系统调用
 pub fn sys_monitor_destroy(monitor_id: usize) -> isize {
     let process = current_user_process();
     let mut process_inner = process.inner_exclusive_access();
+    //在进程的管程资源管理队列中销毁指定管程
     process_inner.monitor_list[monitor_id] = None;
     drop(process_inner);
     drop(process);
