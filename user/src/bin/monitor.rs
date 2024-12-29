@@ -9,7 +9,7 @@ use core::cell::RefMut;
 
 use alloc::{format, string::String, vec::Vec};
 use lazy_static::*;
-use user_lib::{exit, gettid, monitor_check, monitor_create, monitor_create_res_sem, monitor_destroy, monitor_enter, monitor_leave, monitor_signal, monitor_wait, sleep, thread_create, waittid, UPSafeCell};
+use user_lib::{exit, gettid, monitor_check, monitor_create, monitor_create_res_sem, monitor_enter, monitor_leave, monitor_signal, monitor_wait, sleep, thread_create, waittid, UPSafeCell};
 
 ///环形缓冲池数据结构
 pub struct CycleBuf {
@@ -31,7 +31,6 @@ pub struct MonitorInner {
     full_count: i32, //满缓冲区个数
     history: Vec<String>, //记录缓冲区历史
     cyc_buf: CycleBuf, //环形缓冲池
-    is_destoried: bool, //当前管程是否被销毁
 }
 
 impl Monitor {
@@ -55,8 +54,7 @@ impl Monitor {
                             read: 0,
                             write: 0,
                             buf: [0; 6],
-                        },
-                        is_destoried: false,
+                        }
                     }
                 )
             }
@@ -68,10 +66,6 @@ impl Monitor {
     }
     //生产函数
     pub fn process(&self, value: i32) {
-        //如果管程已经被销毁，直接返回
-        if self.get_is_destoried() {
-            return;
-        }
         monitor_enter(self.monitor_id); //进入管程
         for _ in 0..5 {
             let inner = self.inner_exclusive_access();
@@ -100,9 +94,6 @@ impl Monitor {
     } 
 
     pub fn consume(&self) {
-        if self.get_is_destoried() {
-            return;
-        }
         monitor_enter(self.monitor_id); //进入管程
         for _ in 0..10 {
             let inner = self.inner_exclusive_access();
@@ -149,21 +140,7 @@ impl Monitor {
     }
     ///检测管程内部是否出现死锁或者饥饿情况
     pub fn check_self(&self) -> isize{
-        if self.get_is_destoried() {
-            return 1;
-        }
         monitor_check(self.monitor_id)
-    }
-    ///销毁管程
-    pub fn destroy(&self) {
-        let mut inner = self.inner_exclusive_access();
-        inner.is_destoried = true;
-        drop(inner);
-        monitor_destroy(self.monitor_id);
-    }
-    ///获取当前管程状态
-    fn get_is_destoried(&self) -> bool {
-        self.inner_exclusive_access().is_destoried
     }
 }
 
@@ -186,7 +163,7 @@ pub fn consumer() {
 pub fn checker() {
     loop {
         if monitor.check_self() == 1 {
-            //管程内的所有线程均被杀死或管程被销毁，守护线程已经没有继续下去的必要了
+            //管程内的所有线程均被杀死，守护线程已经没有继续下去的必要了
             break;
         }
     }
@@ -228,7 +205,5 @@ pub fn main() -> isize {
     monitor.print_history();
     //打印缓冲池
     monitor.print_cyc_buf();
-    //销毁管程
-    monitor.destroy();
     0
 }

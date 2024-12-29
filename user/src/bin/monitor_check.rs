@@ -9,7 +9,7 @@ use core::cell::RefMut;
 
 use alloc::{format, string::String, vec::Vec};
 use lazy_static::*;
-use user_lib::{exit, gettid, monitor_check, monitor_create, monitor_create_res_sem, monitor_destroy, monitor_enter, monitor_leave, monitor_signal, monitor_wait, sleep, thread_create, waittid, UPSafeCell};
+use user_lib::{exit, gettid, monitor_check, monitor_create, monitor_create_res_sem, monitor_enter, monitor_leave, monitor_signal, monitor_wait, sleep, thread_create, waittid, UPSafeCell};
 
 pub struct CycleBuf {
     read: usize,
@@ -17,29 +17,23 @@ pub struct CycleBuf {
     buf: [i32; 6],
 }
 
-///管程数据结构
 pub struct Monitor {
-    //不变量
-    monitor_id: usize, //管程标识符
-    full_res_id: usize, //条件变量标识符
-    empty_res_id: usize, //条件变量标识符
-    //可变量
-    inner: UPSafeCell<MonitorInner>,
+    monitor_id: usize,
+    full_res_id: usize,
+    empty_res_id: usize,
+    inner: UPSafeCell<MonitorInner>
 }
 
 pub struct MonitorInner {
-    full_count: i32, //满缓冲区个数
-    history: Vec<String>, //记录缓冲区历史
-    cyc_buf: CycleBuf, //环形缓冲池
-    is_destoried: bool, //当前管程是否被销毁
+    full_count: i32,
+    history: Vec<String>,
+    cyc_buf: CycleBuf,
 }
 
 impl Monitor {
-    ///创建一个管程实例
+    
     pub fn new() -> Self {
-        //通过系统调用创建一个Hoare管程并获取其标识符
         let monitor_id = monitor_create();
-        //创建条件变量
         let full_res_id = monitor_create_res_sem(monitor_id);
         let empty_res_id = monitor_create_res_sem(monitor_id);
         Self {
@@ -55,82 +49,66 @@ impl Monitor {
                             read: 0,
                             write: 0,
                             buf: [0; 6],
-                        },
-                        is_destoried: false,
+                        }
                     }
                 )
             }
         }
     }
-    //获取可变量inner的可变引用
+
     pub fn inner_exclusive_access(&self) -> RefMut<'_, MonitorInner> {
         self.inner.exclusive_access()
     }
-    //生产函数
+
     pub fn process(&self, value: i32) {
-        //如果管程已经被销毁，直接返回
-        if self.get_is_destoried() {
-            return;
-        }
-        monitor_enter(self.monitor_id); //进入管程
+        monitor_enter(self.monitor_id);
         for _ in 0..5 {
             let inner = self.inner_exclusive_access();
             if inner.full_count == 6 {
-                //缓冲区已满，在empty等待队列中等待空白缓冲区
                 drop(inner);
                 monitor_wait(self.monitor_id, self.empty_res_id);
             } else {
                 drop(inner);
             }
-            //写一个缓冲区
             let mut inner = self.inner_exclusive_access();
             let last_write_ptr = inner.cyc_buf.write;
             inner.cyc_buf.buf[last_write_ptr] = value;
             sleep(5);
             inner.cyc_buf.write = (last_write_ptr + 1) % 6;
-            //增加一个满缓冲区
             inner.full_count += 1;
             let history= format!("processor{} wrote the value {} in buf{}", gettid(), value, last_write_ptr);
             inner.history.push(history);
             drop(inner);
-            //唤醒full等待队列中的消费者线程，自己进入紧急等待队列
             monitor_signal(self.monitor_id, self.full_res_id);
         }
-        monitor_leave(self.monitor_id); //离开管程
+        monitor_leave(self.monitor_id);
     } 
 
     pub fn consume(&self) {
-        if self.get_is_destoried() {
-            return;
-        }
-        monitor_enter(self.monitor_id); //进入管程
+        monitor_enter(self.monitor_id);
         for _ in 0..10 {
             let inner = self.inner_exclusive_access();
             if inner.full_count == 0 {
-                //空缓冲池，在full等待队列中等待满缓冲区
                 drop(inner);
                 monitor_wait(self.monitor_id, self.full_res_id);
             } else {
                 drop(inner);
             }
-            //读缓冲区
             let mut inner = self.inner_exclusive_access();
             let last_read_ptr = inner.cyc_buf.read;
             let value = inner.cyc_buf.buf[last_read_ptr];
             sleep(5);
             inner.cyc_buf.buf[last_read_ptr] = 0;
             inner.cyc_buf.read = (last_read_ptr + 1) % 6;
-            //减少一个满缓冲区
             inner.full_count -= 1;
             let history= format!("consumer{} read the value {} from buf{}", gettid(), value, last_read_ptr);
             inner.history.push(history);
             drop(inner);
-            //唤醒empty等待队列中的生产者线程，自己进入紧急等待队列
             monitor_signal(self.monitor_id, self.empty_res_id);
         }
-        monitor_leave(self.monitor_id); //离开管程
+        monitor_leave(self.monitor_id);
     } 
-    ///打印缓冲池操作历史
+
     pub fn print_history(&self) {
         let inner = self.inner_exclusive_access();
         println!("-------------------HISTORY-----------------");
@@ -138,7 +116,7 @@ impl Monitor {
             println!("{}",his.as_str());
         }
     }
-    ///打印缓冲池
+
     pub fn print_cyc_buf(&self) {
         let inner = self.inner_exclusive_access();
         println!("-------------------CYC_BUF-----------------");
@@ -147,46 +125,30 @@ impl Monitor {
         }
         println!("");
     }
-    ///检测管程内部是否出现死锁或者饥饿情况
+
     pub fn check_self(&self) -> isize{
-        if self.get_is_destoried() {
-            return 1;
-        }
         monitor_check(self.monitor_id)
-    }
-    ///销毁管程
-    pub fn destroy(&self) {
-        let mut inner = self.inner_exclusive_access();
-        inner.is_destoried = true;
-        drop(inner);
-        monitor_destroy(self.monitor_id);
-    }
-    ///获取当前管程状态
-    fn get_is_destoried(&self) -> bool {
-        self.inner_exclusive_access().is_destoried
     }
 }
 
 lazy_static! {
-    //创建管程的静态全局实例
     static ref monitor: Monitor = Monitor::new();
 }
-///生产者线程
+
 pub fn processor(v: *const i32) {
     let value = unsafe { &*v };
     monitor.process(*value);
     exit(0);
 }
-///消费者线程
+
 pub fn consumer() {
    monitor.consume();
-   exit(0);
+    exit(0);
 }
-///管程守护者线程
+
 pub fn checker() {
     loop {
         if monitor.check_self() == 1 {
-            //管程内的所有线程均被杀死或管程被销毁，守护线程已经没有继续下去的必要了
             break;
         }
     }
@@ -225,6 +187,5 @@ pub fn main() -> isize {
     
     monitor.print_history();
     monitor.print_cyc_buf();
-    monitor.destroy();
     0
 }
